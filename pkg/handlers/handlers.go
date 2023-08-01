@@ -9,15 +9,15 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/aaletov/nats-chat/pkg/chatmsg"
 	"github.com/aaletov/nats-chat/pkg/profiles"
+	"github.com/aaletov/nats-chat/pkg/types"
 	"github.com/nats-io/nats.go"
 	"github.com/urfave/cli/v2"
 )
@@ -96,6 +96,100 @@ func GenerateHandler(cCtx *cli.Context) error {
 	return nil
 }
 
+func RunHandler(cCtx *cli.Context) error {
+	profilePath := cCtx.String("profile")
+	recepientKeyPath := cCtx.String("recepient-key")
+
+	var (
+		err              error
+		senderProfile    profiles.SenderProfile
+		recepientProfile profiles.RecepientProfile
+	)
+
+	if senderProfile, err = readSenderProfile(profilePath); err != nil {
+		return err
+	}
+	log.Println("Read sender profile")
+
+	if recepientProfile, err = readRecepientProfile(recepientKeyPath); err != nil {
+		return err
+	}
+	log.Println("Read recepient profile")
+
+	var nc *nats.Conn
+	if nc, err = nats.Connect(cCtx.String("nats-url")); err != nil {
+		return fmt.Errorf("error connecting to nats instance: %s", err)
+	}
+	defer nc.Close()
+	log.Println("Connected to the nats server")
+
+	recepientChat := fmt.Sprintf("chat.%s", recepientProfile.GetAddress())
+	nc.Subscribe(recepientChat, func(msg *nats.Msg) {
+		var cmsg types.ChatMessage
+		if err := json.Unmarshal(msg.Data, &cmsg); err != nil {
+			msg.Nak()
+			return
+		}
+		fmt.Printf("%s %s\n", cmsg.Time.String(), cmsg.Text)
+		msg.Ack()
+	})
+	log.Printf("Subscribed at recepient chat: %s\n", recepientChat)
+
+	recepientOnline := fmt.Sprintf("online.%s", recepientProfile.GetAddress())
+	onlineChan := make(chan bool)
+	onlineSub, _ := nc.Subscribe(recepientOnline, func(msg *nats.Msg) {
+		msg.Ack()
+		onlineChan <- true
+		log.Printf("Got online message at online chat: %s\n", recepientOnline)
+	})
+	log.Printf("Subscribed at recepient online: %s\n", recepientOnline)
+
+	ticker := time.NewTicker(33 * time.Millisecond)
+	omsg := types.OnlineMessage{IsOnline: true}
+	var msgBytes []byte
+	if msgBytes, err = json.Marshal(omsg); err != nil {
+		log.Printf("error marshalling message: %s", err)
+	}
+
+	func() {
+		for {
+			select {
+			case <-ticker.C:
+				senderOnline := fmt.Sprintf("online.%s", senderProfile.GetAddress())
+				nc.Publish(senderOnline, msgBytes)
+				log.Printf("Published online message at sender online: %s\n", senderOnline)
+			case <-onlineChan:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+	onlineSub.Unsubscribe()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(os.Stdin)
+		for {
+			scanner.Scan()
+			text := scanner.Text()
+			cmsg := types.ChatMessage{
+				Time: time.Now(),
+				Text: text,
+			}
+			var msgBytes []byte
+			if msgBytes, err = json.Marshal(cmsg); err != nil {
+				log.Printf("error marshalling message: %s", err)
+			}
+			nc.Publish(fmt.Sprintf("chat.%s", senderProfile.GetAddress()), msgBytes)
+		}
+	}()
+	wg.Wait()
+
+	return nil
+}
+
 func readPrivateKey(privateKeyPath string) (*rsa.PrivateKey, error) {
 	var err error
 	if _, err := os.Stat(privateKeyPath); (err != nil) && (os.IsNotExist(err)) {
@@ -107,7 +201,7 @@ func readPrivateKey(privateKeyPath string) (*rsa.PrivateKey, error) {
 	}
 	defer privatePemFile.Close()
 	var privatePemBytes []byte
-	if privatePemBytes, err = ioutil.ReadAll(privatePemFile); err != nil {
+	if privatePemBytes, err = io.ReadAll(privatePemFile); err != nil {
 		return nil, fmt.Errorf("error reading private key: %s", err)
 	}
 	privateKeyBlock, _ := pem.Decode(privatePemBytes)
@@ -130,7 +224,7 @@ func readRecepientKey(recepientKeyPath string) (*rsa.PublicKey, error) {
 	}
 	defer recepientPemFile.Close()
 	var recepientPemBytes []byte
-	if recepientPemBytes, err = ioutil.ReadAll(recepientPemFile); err != nil {
+	if recepientPemBytes, err = io.ReadAll(recepientPemFile); err != nil {
 		return nil, fmt.Errorf("error reading recepient key: %s", err)
 	}
 	recepientKeyBlock, _ := pem.Decode(recepientPemBytes)
@@ -174,62 +268,4 @@ func readRecepientProfile(recepientKeyPath string) (profiles.RecepientProfile, e
 	}
 
 	return profile, nil
-}
-
-func RunHandler(cCtx *cli.Context) error {
-	profilePath := cCtx.String("profile")
-	recepientKeyPath := cCtx.String("recepient-key")
-
-	var (
-		err              error
-		senderProfile    profiles.SenderProfile
-		recepientProfile profiles.RecepientProfile
-	)
-
-	if senderProfile, err = readSenderProfile(profilePath); err != nil {
-		return err
-	}
-
-	if recepientProfile, err = readRecepientProfile(recepientKeyPath); err != nil {
-		return err
-	}
-
-	var nc *nats.Conn
-	if nc, err = nats.Connect(cCtx.String("nats-url")); err != nil {
-		return fmt.Errorf("error connecting to nats instance: %s", err)
-	}
-	defer nc.Close()
-
-	nc.Subscribe(recepientProfile.GetAddress(), func(msg *nats.Msg) {
-		var cmsg chatmsg.ChatMessage
-		if err := json.Unmarshal(msg.Data, &cmsg); err != nil {
-			msg.Nak()
-			return
-		}
-		fmt.Printf("%s %s\n", cmsg.Time.String(), cmsg.Text)
-		msg.Ack()
-	})
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(os.Stdin)
-		for {
-			scanner.Scan()
-			text := scanner.Text()
-			cmsg := chatmsg.ChatMessage{
-				Time: time.Now(),
-				Text: text,
-			}
-			var msgBytes []byte
-			if msgBytes, err = json.Marshal(cmsg); err != nil {
-				log.Printf("error marshalling message: %s", err)
-			}
-			nc.Publish(senderProfile.GetAddress(), msgBytes)
-		}
-	}()
-	wg.Wait()
-
-	return nil
 }
