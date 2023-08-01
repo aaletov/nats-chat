@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,7 +18,6 @@ func main() {
 	if homeDir, err = os.UserHomeDir(); err != nil {
 		log.Fatalf("Unable to get user's home directory: %s", err)
 	}
-	fmt.Println(homeDir)
 	app := cli.App{
 		Name:  "nats-chat",
 		Usage: "Chat using nats",

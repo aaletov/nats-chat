@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -45,6 +46,7 @@ func GenerateHandler(cCtx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("error when create private.pem: %s \n", err)
 	}
+	defer privatePem.Close()
 	err = pem.Encode(privatePem, privateKeyBlock)
 	if err != nil {
 		return fmt.Errorf("error when encode private pem: %s \n", err)
@@ -59,6 +61,7 @@ func GenerateHandler(cCtx *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("error when create public.pem: %s \n", err)
 	}
+	defer publicPem.Close()
 	err = pem.Encode(publicPem, publicKeyBlock)
 	if err != nil {
 		return fmt.Errorf("error when encode public pem: %s \n", err)
@@ -169,6 +172,7 @@ func RunHandler(cCtx *cli.Context) error {
 	if nc, err = nats.Connect(cCtx.String("nats-url")); err != nil {
 		return fmt.Errorf("error connecting to nats instance: %s", err)
 	}
+	defer nc.Close()
 
 	nc.Subscribe(recepientProfile.GetAddress(), func(msg *nats.Msg) {
 		var cmsg chatmsg.ChatMessage
@@ -184,9 +188,10 @@ func RunHandler(cCtx *cli.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		scanner := bufio.NewScanner(os.Stdin)
 		for {
-			var text string
-			fmt.Scanln(&text)
+			scanner.Scan()
+			text := scanner.Text()
 			cmsg := chatmsg.ChatMessage{
 				Time: time.Now(),
 				Text: text,
