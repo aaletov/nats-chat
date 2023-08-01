@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -21,14 +22,35 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+func createIfNotExist(filepath string) (*os.File, error) {
+	var (
+		err  error
+		file *os.File
+	)
+
+	if _, err = os.Stat(filepath); err == nil {
+		return nil, errors.New("file exists")
+	}
+
+	if file, err = os.Create(filepath); err != nil {
+		return nil, err
+	}
+
+	return file, nil
+}
+
 func GenerateHandler(cCtx *cli.Context) error {
 	outPath := cCtx.String("out")
 	if _, err := os.Stat(outPath); (err != nil) && (os.IsNotExist(err)) {
 		return fmt.Errorf("directory does not exist: %s", err)
 	}
-	profilePath := filepath.Join(outPath, ".natschat")
-	if err := os.Mkdir(profilePath, 0700); err != nil {
-		return fmt.Errorf("error when create profile directory: %s", err)
+
+	profilePath := outPath
+	if !cCtx.IsSet("out") {
+		profilePath = filepath.Join(outPath, ".natschat")
+		if err := os.Mkdir(profilePath, 0700); err != nil {
+			return fmt.Errorf("error when create profile directory: %s", err)
+		}
 	}
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -42,11 +64,13 @@ func GenerateHandler(cCtx *cli.Context) error {
 		Type:  "RSA PRIVATE KEY",
 		Bytes: privateKeyBytes,
 	}
-	privatePem, err := os.Create(filepath.Join(profilePath, "private.pem"))
-	if err != nil {
+
+	var privatePem *os.File
+	if privatePem, err = createIfNotExist(filepath.Join(profilePath, "private.pem")); err != nil {
 		return fmt.Errorf("error when create private.pem: %s \n", err)
 	}
 	defer privatePem.Close()
+
 	err = pem.Encode(privatePem, privateKeyBlock)
 	if err != nil {
 		return fmt.Errorf("error when encode private pem: %s \n", err)
@@ -57,11 +81,13 @@ func GenerateHandler(cCtx *cli.Context) error {
 		Type:  "PUBLIC KEY",
 		Bytes: publicKeyBytes,
 	}
-	publicPem, err := os.Create(filepath.Join(profilePath, "public.pem"))
-	if err != nil {
+
+	var publicPem *os.File
+	if publicPem, err = createIfNotExist(filepath.Join(profilePath, "public.pem")); err != nil {
 		return fmt.Errorf("error when create public.pem: %s \n", err)
 	}
 	defer publicPem.Close()
+
 	err = pem.Encode(publicPem, publicKeyBlock)
 	if err != nil {
 		return fmt.Errorf("error when encode public pem: %s \n", err)
