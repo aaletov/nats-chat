@@ -38,8 +38,6 @@ class TestNatsChat(unittest.TestCase):
             p1 = subprocess.Popen(args1, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
             p2 = subprocess.Popen(args2, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
 
-            time.sleep(1)
-
             p1.stdin.write(bytes("Hello!\n", 'utf-8'))
             p1.stdin.flush()
             p2.stdin.write(bytes("Nice to meet you!\n", 'utf-8'))

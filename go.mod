@@ -3,6 +3,8 @@ module github.com/aaletov/nats-chat
 go 1.20
 
 require (
+	github.com/btcsuite/btcd v0.20.1-beta // indirect
+	github.com/btcsuite/btcutil v1.0.2 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect
 	github.com/nats-io/nats.go v1.28.0 // indirect
