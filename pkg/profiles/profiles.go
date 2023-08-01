@@ -1,12 +1,14 @@
 package profiles
 
 import (
+	"crypto/md5"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"strings"
+
+	"github.com/btcsuite/btcutil/base58"
 )
 
 type SenderProfile struct {
@@ -23,13 +25,11 @@ func getAddress(publicKey *rsa.PublicKey) (string, error) {
 	}
 
 	publicKeyPem := pem.EncodeToMemory(publicKeyBlock)
-	builder := &strings.Builder{}
-	_, err := base64.NewEncoder(base64.StdEncoding, builder).Write(publicKeyPem)
-	if err != nil {
-		return "", fmt.Errorf("error encoding key in base64: %s", err)
-	}
+	hash256 := sha256.Sum256(publicKeyPem)
+	hash128 := md5.Sum(hash256[:])
+	address := base58.Encode(hash128[:])
 
-	return builder.String(), nil
+	return address, nil
 }
 
 func NewSenderProfile(privateKey *rsa.PrivateKey) (SenderProfile, error) {
