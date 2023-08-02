@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/aaletov/nats-chat/pkg/profiles"
@@ -123,69 +121,47 @@ func RunHandler(cCtx *cli.Context) error {
 	defer nc.Close()
 	log.Println("Connected to the nats server")
 
-	recepientChat := fmt.Sprintf("chat.%s", recepientProfile.GetAddress())
-	nc.Subscribe(recepientChat, func(msg *nats.Msg) {
-		var cmsg types.ChatMessage
-		if err := json.Unmarshal(msg.Data, &cmsg); err != nil {
-			msg.Nak()
-			return
-		}
-		fmt.Printf("%s %s\n", cmsg.Time.String(), cmsg.Text)
-		msg.Ack()
-	})
-	log.Printf("Subscribed at recepient chat: %s\n", recepientChat)
-
-	recepientOnline := fmt.Sprintf("online.%s", recepientProfile.GetAddress())
-	onlineChan := make(chan bool)
-	onlineSub, _ := nc.Subscribe(recepientOnline, func(msg *nats.Msg) {
-		msg.Ack()
-		onlineChan <- true
-		log.Printf("Got online message at online chat: %s\n", recepientOnline)
-	})
-	log.Printf("Subscribed at recepient online: %s\n", recepientOnline)
-
-	ticker := time.NewTicker(33 * time.Millisecond)
-	omsg := types.OnlineMessage{IsOnline: true}
-	var msgBytes []byte
-	if msgBytes, err = json.Marshal(omsg); err != nil {
-		log.Printf("error marshalling message: %s", err)
+	session := NewSession(nc, senderProfile)
+	session.Open()
+	defer session.Close()
+	var conn *ChatConnection
+	if conn, err = session.Dial(recepientProfile.GetAddress()); err != nil {
+		return fmt.Errorf("error dialing %s: %s", recepientProfile.GetAddress(), err)
 	}
+	log.Printf("Successfully dialed: %s\n", recepientProfile.GetAddress())
+	defer conn.Close()
 
+	go func() {
+		for cmsg := range conn.IncomingChan {
+			fmt.Printf("%s.%s\n", cmsg.Time, cmsg.Text)
+		}
+	}()
+
+	scanner := bufio.NewScanner(os.Stdin)
 	func() {
 		for {
 			select {
-			case <-ticker.C:
-				senderOnline := fmt.Sprintf("online.%s", senderProfile.GetAddress())
-				nc.Publish(senderOnline, msgBytes)
-				log.Printf("Published online message at sender online: %s\n", senderOnline)
-			case <-onlineChan:
-				ticker.Stop()
-				return
+			case isOnline := <-conn.OnlineChan:
+				if isOnline {
+					panic("not handled")
+				} else {
+					close(conn.OutcomingChan)
+					return
+				}
+			default:
+				if !scanner.Scan() && (scanner.Err() != nil) {
+					close(conn.OutcomingChan)
+					return
+				}
+				text := scanner.Text()
+				cmsg := types.ChatMessage{
+					Time: time.Now(),
+					Text: text,
+				}
+				conn.OutcomingChan <- cmsg
 			}
 		}
 	}()
-	onlineSub.Unsubscribe()
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(os.Stdin)
-		for {
-			scanner.Scan()
-			text := scanner.Text()
-			cmsg := types.ChatMessage{
-				Time: time.Now(),
-				Text: text,
-			}
-			var msgBytes []byte
-			if msgBytes, err = json.Marshal(cmsg); err != nil {
-				log.Printf("error marshalling message: %s", err)
-			}
-			nc.Publish(fmt.Sprintf("chat.%s", senderProfile.GetAddress()), msgBytes)
-		}
-	}()
-	wg.Wait()
 
 	return nil
 }

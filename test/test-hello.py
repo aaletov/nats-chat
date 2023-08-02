@@ -1,5 +1,6 @@
 import unittest
 import subprocess
+import signal
 import os
 import logging
 import sys
@@ -15,7 +16,7 @@ class TestNatsChat(unittest.TestCase):
         client = docker.from_env()
         container = client.containers.run("nats:alpine3.18", detach=True, auto_remove=True, 
                                           ports={"4444/tcp": ("0.0.0.0", 4444)},
-                                          command="nats-server --config /etc/nats/nats-server.conf -p 4444")
+                                          command="nats-server --config /etc/nats/nats-server.conf -p 4444 -D --trace")
         while container.status != "running":
             container.reload()
             time.sleep(0.1)
@@ -44,11 +45,11 @@ class TestNatsChat(unittest.TestCase):
             p2.stdin.flush()
             t1 = p1.stdout.readline().decode('utf-8')
             t2 = p2.stdout.readline().decode('utf-8')
-            p1.kill()
+            p1.send_signal(signal.SIGINT)
             p1.stdin.close()
             p1.stdout.close()
             p1.wait()
-            p2.kill()
+            p2.send_signal(signal.SIGINT)
             p2.stdin.close()
             p2.stdout.close()
             p2.wait()
