@@ -6,10 +6,18 @@ import (
 	"path/filepath"
 
 	"github.com/aaletov/nats-chat/pkg/handlers"
+	nested "github.com/antonfisher/nested-logrus-formatter"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
+	logger := logrus.New()
+	logger.SetFormatter(&nested.Formatter{
+		HideKeys:    true,
+		FieldsOrder: []string{"component", "method"},
+	})
+
 	var (
 		homeDir string
 		err     error
@@ -36,7 +44,7 @@ func main() {
 						Value: homeDir,
 					},
 				},
-				Action: handlers.GenerateHandler,
+				Action: handlers.NewGenerateHandler(logger),
 			},
 			{
 				Name:  "run",
@@ -58,7 +66,7 @@ func main() {
 						Required: true,
 					},
 				},
-				Action: handlers.RunHandler,
+				Action: handlers.NewRunHandler(logger),
 			},
 		},
 	}

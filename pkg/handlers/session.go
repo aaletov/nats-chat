@@ -4,22 +4,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/aaletov/nats-chat/pkg/profiles"
 	"github.com/aaletov/nats-chat/pkg/types"
 	"github.com/nats-io/nats.go"
+	"github.com/sirupsen/logrus"
 )
 
 type Session struct {
+	logger  *logrus.Entry
 	nc      *nats.Conn
 	profile profiles.SenderProfile
 	pingSub *nats.Subscription
 }
 
-func NewSession(nc *nats.Conn, profile profiles.SenderProfile) Session {
+func NewSession(logger *logrus.Logger, nc *nats.Conn, profile profiles.SenderProfile) Session {
+	ll := logger.WithFields(logrus.Fields{
+		"component": "Session",
+	})
 	return Session{
+		logger:  ll,
 		nc:      nc,
 		profile: profile,
 	}
@@ -27,6 +32,9 @@ func NewSession(nc *nats.Conn, profile profiles.SenderProfile) Session {
 
 // There should be a way to handle s == nil
 func (s *Session) Open() error {
+	logger := s.logger.WithFields(logrus.Fields{
+		"method": "Open",
+	})
 	senderPing := fmt.Sprintf("ping.%s", s.profile.GetAddress())
 
 	sub, _ := s.nc.Subscribe(senderPing, func(msg *nats.Msg) {
@@ -38,18 +46,18 @@ func (s *Session) Open() error {
 		)
 
 		if err = json.Unmarshal(msg.Data, &pmsg); err != nil {
-			log.Printf("error unmarshalling ping message: %s\n", err)
+			logger.Printf("error unmarshalling ping message: %s\n", err)
 		}
 		recepientOnline := fmt.Sprintf("online.%s", pmsg.AuthorAddress)
 		omsg = types.OnlineMessage{AuthorAddress: s.profile.GetAddress(), IsOnline: true}
 		if marshalled, err = json.Marshal(omsg); err != nil {
-			log.Printf("error marshalling online message: %s\n", err)
+			logger.Printf("error marshalling online message: %s\n", err)
 		}
 		s.nc.Publish(recepientOnline, marshalled)
 		msg.Ack()
 	})
 	s.pingSub = sub
-	log.Printf("Subscribed at sender ping: %s\n", senderPing)
+	logger.Printf("Subscribed at sender ping: %s\n", senderPing)
 	return nil
 }
 
@@ -58,6 +66,9 @@ func (s *Session) Close() error {
 }
 
 func (s *Session) Dial(recepient string) (*ChatConnection, error) {
+	logger := s.logger.WithFields(logrus.Fields{
+		"method": "Dial",
+	})
 	senderOnline := fmt.Sprintf("online.%s", s.profile.GetAddress())
 	senderChat := fmt.Sprintf("chat.%s", s.profile.GetAddress())
 	recepientPing := fmt.Sprintf("ping.%s", recepient)
@@ -78,7 +89,7 @@ func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 		online <- omsg.IsOnline
 		msg.Ack()
 	})
-	log.Printf("Subscribed at sender online: %s\n", senderOnline)
+	logger.Printf("Subscribed at sender online: %s\n", senderOnline)
 
 	chatSub, _ := s.nc.Subscribe(senderChat, func(msg *nats.Msg) {
 		var cmsg types.ChatMessage
@@ -89,7 +100,7 @@ func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 		incomingChan <- cmsg
 		msg.Ack()
 	})
-	log.Printf("Subscribed at sender chat %s\n", senderChat)
+	logger.Printf("Subscribed at sender chat %s\n", senderChat)
 
 	ticker := time.NewTicker(33 * time.Millisecond)
 	err := func() error {
@@ -99,13 +110,13 @@ func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 			data []byte
 		)
 		if data, err = json.Marshal(pmsg); err != nil {
-			log.Printf("error marshal ping message: %s\n", err)
+			logger.Printf("error marshal ping message: %s\n", err)
 		}
 		for {
 			select {
 			case <-ticker.C:
 				s.nc.Publish(recepientPing, data)
-				log.Printf("Pinged %s\n", recepient)
+				logger.Printf("Pinged %s\n", recepient)
 			case isOnline := <-online:
 				ticker.Stop()
 				if isOnline {
@@ -128,14 +139,17 @@ func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 				data []byte
 			)
 			if data, err = json.Marshal(cmsg); err != nil {
-				log.Printf("unable to marshal message: %s", cmsg)
+				logger.Printf("unable to marshal message: %s", cmsg)
 			}
 			s.nc.Publish(recepientChat, data)
-			log.Printf("Sent message %s\n", cmsg)
+			logger.Printf("Sent message %s\n", cmsg)
 		}
 	}()
 
 	return &ChatConnection{
+		logger: s.logger.Logger.WithFields(logrus.Fields{
+			"component": "ChatConnection",
+		}),
 		SenderAddress:    s.profile.GetAddress(),
 		RecepientAddress: recepient,
 		OnlineChan:       online,
@@ -148,6 +162,7 @@ func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 }
 
 type ChatConnection struct {
+	logger           *logrus.Entry
 	SenderAddress    string
 	RecepientAddress string
 	OnlineChan       chan bool
@@ -159,6 +174,9 @@ type ChatConnection struct {
 }
 
 func (c *ChatConnection) Close() (err error) {
+	ll := c.logger.WithFields(logrus.Fields{
+		"method": "Close",
+	})
 	recepientOnline := fmt.Sprintf("online.%s", c.RecepientAddress)
 	offlineMsg := types.OnlineMessage{IsOnline: false}
 	data, _ := json.Marshal(offlineMsg)
@@ -167,9 +185,11 @@ func (c *ChatConnection) Close() (err error) {
 	if err = c.onlineSub.Unsubscribe(); err != nil {
 		return err
 	}
+	ll.Println("Unsubscribed from online")
 	if err = c.chatSub.Unsubscribe(); err != nil {
 		return err
 	}
+	ll.Println("Unsubscribed from chat")
 	close(c.IncomingChan)
 	return nil
 }
