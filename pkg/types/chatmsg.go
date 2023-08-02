@@ -8,5 +8,10 @@ type ChatMessage struct {
 }
 
 type OnlineMessage struct {
-	IsOnline bool `json:"isOnline"`
+	AuthorAddress string `json:"authorAddress"`
+	IsOnline      bool   `json:"isOnline"`
+}
+
+type PingMessage struct {
+	AuthorAddress string `json:"authorAddress"`
 }
