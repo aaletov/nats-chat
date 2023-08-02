@@ -4,5 +4,6 @@ build:
 	mkdir -p ./build
 	go build -o ./build/nats-chat
 
-test: build
-	python3 ./test/test-hello.py
+test:
+	docker build . -t nats-chat-test:latest
+	docker run --rm nats-chat-test:latest

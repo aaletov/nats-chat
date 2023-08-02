@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -17,153 +16,153 @@ import (
 	"github.com/aaletov/nats-chat/pkg/profiles"
 	"github.com/aaletov/nats-chat/pkg/types"
 	"github.com/nats-io/nats.go"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
-func createIfNotExist(filepath string) (*os.File, error) {
-	var (
-		err  error
-		file *os.File
-	)
+func NewGenerateHandler(logger *logrus.Logger) cli.ActionFunc {
+	return func(cCtx *cli.Context) error {
+		ll := logger.WithFields(logrus.Fields{
+			"component": "GenerateHandler",
+		})
 
-	if _, err = os.Stat(filepath); err == nil {
-		return nil, errors.New("file exists")
-	}
-
-	if file, err = os.Create(filepath); err != nil {
-		return nil, err
-	}
-
-	return file, nil
-}
-
-func GenerateHandler(cCtx *cli.Context) error {
-	outPath := cCtx.String("out")
-	if _, err := os.Stat(outPath); (err != nil) && (os.IsNotExist(err)) {
-		return fmt.Errorf("directory does not exist: %s", err)
-	}
-
-	profilePath := outPath
-	if !cCtx.IsSet("out") {
-		profilePath = filepath.Join(outPath, ".natschat")
-		if err := os.Mkdir(profilePath, 0700); err != nil {
-			return fmt.Errorf("error when create profile directory: %s", err)
+		outPath := cCtx.String("out")
+		if _, err := os.Stat(outPath); (err != nil) && (os.IsNotExist(err)) {
+			return fmt.Errorf("directory does not exist: %s", err)
 		}
-	}
 
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return fmt.Errorf("error when generate key pair: %s", err)
-	}
-	publicKey := &privateKey.PublicKey
-
-	var privateKeyBytes []byte = x509.MarshalPKCS1PrivateKey(privateKey)
-	privateKeyBlock := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: privateKeyBytes,
-	}
-
-	var privatePem *os.File
-	if privatePem, err = createIfNotExist(filepath.Join(profilePath, "private.pem")); err != nil {
-		return fmt.Errorf("error when create private.pem: %s \n", err)
-	}
-	defer privatePem.Close()
-
-	err = pem.Encode(privatePem, privateKeyBlock)
-	if err != nil {
-		return fmt.Errorf("error when encode private pem: %s \n", err)
-	}
-
-	publicKeyBytes := x509.MarshalPKCS1PublicKey(publicKey)
-	publicKeyBlock := &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: publicKeyBytes,
-	}
-
-	var publicPem *os.File
-	if publicPem, err = createIfNotExist(filepath.Join(profilePath, "public.pem")); err != nil {
-		return fmt.Errorf("error when create public.pem: %s \n", err)
-	}
-	defer publicPem.Close()
-
-	err = pem.Encode(publicPem, publicKeyBlock)
-	if err != nil {
-		return fmt.Errorf("error when encode public pem: %s \n", err)
-	}
-
-	return nil
-}
-
-func RunHandler(cCtx *cli.Context) error {
-	profilePath := cCtx.String("profile")
-	recepientKeyPath := cCtx.String("recepient-key")
-
-	var (
-		err              error
-		senderProfile    profiles.SenderProfile
-		recepientProfile profiles.RecepientProfile
-	)
-
-	if senderProfile, err = readSenderProfile(profilePath); err != nil {
-		return err
-	}
-	log.Println("Read sender profile")
-
-	if recepientProfile, err = readRecepientProfile(recepientKeyPath); err != nil {
-		return err
-	}
-	log.Println("Read recepient profile")
-
-	var nc *nats.Conn
-	if nc, err = nats.Connect(cCtx.String("nats-url")); err != nil {
-		return fmt.Errorf("error connecting to nats instance: %s", err)
-	}
-	defer nc.Close()
-	log.Println("Connected to the nats server")
-
-	session := NewSession(nc, senderProfile)
-	session.Open()
-	defer session.Close()
-	var conn *ChatConnection
-	if conn, err = session.Dial(recepientProfile.GetAddress()); err != nil {
-		return fmt.Errorf("error dialing %s: %s", recepientProfile.GetAddress(), err)
-	}
-	log.Printf("Successfully dialed: %s\n", recepientProfile.GetAddress())
-	defer conn.Close()
-
-	go func() {
-		for cmsg := range conn.IncomingChan {
-			fmt.Printf("%s.%s\n", cmsg.Time, cmsg.Text)
-		}
-	}()
-
-	scanner := bufio.NewScanner(os.Stdin)
-	func() {
-		for {
-			select {
-			case isOnline := <-conn.OnlineChan:
-				if isOnline {
-					panic("not handled")
-				} else {
-					close(conn.OutcomingChan)
-					return
-				}
-			default:
-				if !scanner.Scan() && (scanner.Err() != nil) {
-					close(conn.OutcomingChan)
-					return
-				}
-				text := scanner.Text()
-				cmsg := types.ChatMessage{
-					Time: time.Now(),
-					Text: text,
-				}
-				conn.OutcomingChan <- cmsg
+		profilePath := outPath
+		if !cCtx.IsSet("out") {
+			profilePath = filepath.Join(outPath, ".natschat")
+			if err := os.Mkdir(profilePath, 0700); err != nil {
+				return fmt.Errorf("error when create profile directory: %s", err)
 			}
 		}
-	}()
 
-	return nil
+		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			return fmt.Errorf("error when generate key pair: %s", err)
+		}
+		publicKey := &privateKey.PublicKey
+
+		var privateKeyBytes []byte = x509.MarshalPKCS1PrivateKey(privateKey)
+		privateKeyBlock := &pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: privateKeyBytes,
+		}
+
+		var privatePem *os.File
+		if privatePem, err = createIfNotExist(filepath.Join(profilePath, "private.pem")); err != nil {
+			return fmt.Errorf("error when create private.pem: %s \n", err)
+		}
+		defer privatePem.Close()
+
+		err = pem.Encode(privatePem, privateKeyBlock)
+		if err != nil {
+			return fmt.Errorf("error when encode private pem: %s \n", err)
+		}
+
+		publicKeyBytes := x509.MarshalPKCS1PublicKey(publicKey)
+		publicKeyBlock := &pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: publicKeyBytes,
+		}
+
+		var publicPem *os.File
+		if publicPem, err = createIfNotExist(filepath.Join(profilePath, "public.pem")); err != nil {
+			return fmt.Errorf("error when create public.pem: %s \n", err)
+		}
+		defer publicPem.Close()
+
+		err = pem.Encode(publicPem, publicKeyBlock)
+		if err != nil {
+			return fmt.Errorf("error when encode public pem: %s \n", err)
+		}
+		ll.Println("Generated new key pair")
+		return nil
+	}
+}
+
+func NewRunHandler(logger *logrus.Logger) cli.ActionFunc {
+	return func(cCtx *cli.Context) error {
+		ll := logger.WithFields(logrus.Fields{
+			"component": "RunHandler",
+		})
+
+		profilePath := cCtx.String("profile")
+		recepientKeyPath := cCtx.String("recepient-key")
+
+		var (
+			err              error
+			senderProfile    profiles.SenderProfile
+			recepientProfile profiles.RecepientProfile
+		)
+
+		if senderProfile, err = readSenderProfile(profilePath); err != nil {
+			return err
+		}
+		ll.Println("Read sender profile")
+
+		if recepientProfile, err = readRecepientProfile(recepientKeyPath); err != nil {
+			return err
+		}
+		ll.Println("Read recepient profile")
+
+		options := []nats.Option{nats.Timeout(10 * time.Second)}
+		var nc *nats.Conn
+		if nc, err = nats.Connect(cCtx.String("nats-url"), options...); err != nil {
+			return fmt.Errorf("error connecting to nats instance: %s", err)
+		}
+		defer nc.Close()
+		ll.Println("Connected to the nats server")
+
+		session := NewSession(logger, nc, senderProfile)
+		session.Open()
+		defer session.Close()
+		var conn *ChatConnection
+		if conn, err = session.Dial(recepientProfile.GetAddress()); err != nil {
+			return fmt.Errorf("error dialing %s: %s", recepientProfile.GetAddress(), err)
+		}
+		ll.Printf("Successfully dialed: %s\n", recepientProfile.GetAddress())
+		defer conn.Close()
+
+		go func() {
+			for cmsg := range conn.IncomingChan {
+				fmt.Printf("%s.%s\n", cmsg.Time, cmsg.Text)
+			}
+		}()
+
+		scanner := bufio.NewScanner(os.Stdin)
+		func() {
+			for {
+				select {
+				case isOnline := <-conn.OnlineChan:
+					if isOnline {
+						panic("not handled")
+					} else {
+						close(conn.OutcomingChan)
+						return
+					}
+				default:
+					if !scanner.Scan() {
+						if scanner.Err() != nil {
+							panic("nos handled")
+						}
+						close(conn.OutcomingChan)
+						return
+					}
+					text := scanner.Text()
+					cmsg := types.ChatMessage{
+						Time: time.Now(),
+						Text: text,
+					}
+					conn.OutcomingChan <- cmsg
+				}
+			}
+		}()
+
+		return nil
+	}
 }
 
 func readPrivateKey(privateKeyPath string) (*rsa.PrivateKey, error) {
@@ -244,4 +243,21 @@ func readRecepientProfile(recepientKeyPath string) (profiles.RecepientProfile, e
 	}
 
 	return profile, nil
+}
+
+func createIfNotExist(filepath string) (*os.File, error) {
+	var (
+		err  error
+		file *os.File
+	)
+
+	if _, err = os.Stat(filepath); err == nil {
+		return nil, errors.New("file exists")
+	}
+
+	if file, err = os.Create(filepath); err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }

@@ -1,43 +1,87 @@
 import unittest
 import subprocess
-import signal
 import os
 import logging
 import sys
-import time
 import shutil
-import docker
+from typing import List, Tuple, Dict, Any
 
 home = os.getenv("NATS_CHAT_HOME")
+user_home = os.getenv("HOME")
+user_nats_profile = os.path.join(user_home, ".natschat")
 
-class TestNatsChat(unittest.TestCase):
-    def test_hello(self):
-        logger = logging.getLogger("LOGGER")
-        client = docker.from_env()
-        container = client.containers.run("nats:alpine3.18", detach=True, auto_remove=True, 
-                                          ports={"4444/tcp": ("0.0.0.0", 4444)},
-                                          command="nats-server --config /etc/nats/nats-server.conf -p 4444 -D --trace")
-        while container.status != "running":
-            container.reload()
-            time.sleep(0.1)
+def format_tuple(seq: Tuple, kv: Dict[str, str]) -> Tuple:
+    return tuple(el.format(**kv) for el in seq)
 
+class TestGenerate(unittest.TestCase):
+    profile_path = os.path.join(home, "profile")
+    @staticmethod
+    def dogenerate(out=None) -> None:
+        args = (
+            os.path.join(home, "build/nats-chat"),
+            "generate",
+        )
+        if out != None:
+            args = (*args, "--out", out)
+        p1 = subprocess.Popen(args)
+        p1.wait()
+
+    def setUp(cls) -> None:
+        os.mkdir(TestGenerate.profile_path)
+
+    def tearDown(cls) -> None:
+        shutil.rmtree(TestGenerate.profile_path)
+        if os.path.isdir(user_nats_profile):
+            shutil.rmtree(user_nats_profile)
+
+    def test_generate(self) -> None:
+        TestGenerate.dogenerate()
+        self.assertTrue(os.path.isfile(os.path.join(user_nats_profile, "public.pem")))
+        self.assertTrue(os.path.isfile(os.path.join(user_nats_profile, "private.pem")))
+
+    def test_generate_out(self) -> None:
+        TestGenerate.dogenerate(TestGenerate.profile_path)
+        self.assertTrue(os.path.isfile(os.path.join(TestGenerate.profile_path, "public.pem")))
+        self.assertTrue(os.path.isfile(os.path.join(TestGenerate.profile_path, "private.pem")))
+
+class TestRun(unittest.TestCase):
+    profilePath1 = os.path.join(home, "profile1")
+    profilePath2 = os.path.join(home, "profile2")
+
+    @staticmethod
+    def dorun(profile=None, recepientKey=None, natsUrl=None) -> Any:
         args = (
             os.path.join(home, "build/nats-chat"),
             "run",
-            "--profile",
-            os.path.join(home, "test/{sender}"),
-            "--recepient-key",
-            os.path.join(home, "test/{recepient}/public.pem"),
-            "--nats-url",
-            "nats://0.0.0.0:4444",
         )
+        if profile != None:
+            args = (*args, "--profile", profile)
+        if recepientKey != None:
+            args = (*args, "--recepient-key", recepientKey)
+        if natsUrl != None:
+            args = (*args, "--nats-url", natsUrl)
+
+        return subprocess.Popen(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+    
+    def setUp(cls) -> None:
+        os.mkdir(TestRun.profilePath1)
+        os.mkdir(TestRun.profilePath2)
+        TestGenerate.dogenerate(TestRun.profilePath1)
+        TestGenerate.dogenerate(TestRun.profilePath2)
+
+    def tearDown(cls) -> None:
+        shutil.rmtree(TestRun.profilePath1)
+        shutil.rmtree(TestRun.profilePath2)
+    
+    def test_hello(self):
+        logger = logging.getLogger("LOGGER")
+        pkey1 = os.path.join(TestRun.profilePath1, "public.pem")
+        pkey2 = os.path.join(TestRun.profilePath2, "public.pem")
+        natsUrl = "nats://0.0.0.0:4444"
 
         try:
-            args1 = tuple(arg.format(sender="testprofile1", recepient="testprofile2") for arg in args)
-            args2 = tuple(arg.format(sender="testprofile2", recepient="testprofile1") for arg in args)
-
-            p1 = subprocess.Popen(args1, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-            p2 = subprocess.Popen(args2, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            p1 = TestRun.dorun(TestRun.profilePath1, pkey2, natsUrl)
+            p2 = TestRun.dorun(TestRun.profilePath2, pkey1, natsUrl)
 
             p1.stdin.write(bytes("Hello!\n", 'utf-8'))
             p1.stdin.flush()
@@ -45,40 +89,39 @@ class TestNatsChat(unittest.TestCase):
             p2.stdin.flush()
             t1 = p1.stdout.readline().decode('utf-8')
             t2 = p2.stdout.readline().decode('utf-8')
-            p1.send_signal(signal.SIGINT)
             p1.stdin.close()
-            p1.stdout.close()
             p1.wait()
-            p2.send_signal(signal.SIGINT)
             p2.stdin.close()
-            p2.stdout.close()
             p2.wait()
-            logger.info(t1)
-            logger.info(t2)
             self.assertTrue("Nice to meet you!" in t1)    
             self.assertTrue("Hello!" in t2)
         finally:
-            container.stop()
-            client.close()
-
-    def test_generate(self):
+            p1.stdout.close()
+            p2.stdout.close()
+    
+    def test_offline_closes(self):
         logger = logging.getLogger("LOGGER")
-        temp = os.path.join(home, "temp")
-        args = (
-            os.path.join(home, "build/nats-chat"),
-            "generate",
-            "--out",
-            temp,
-        )
+        pkey1 = os.path.join(TestRun.profilePath1, "public.pem")
+        pkey2 = os.path.join(TestRun.profilePath2, "public.pem")
+        natsUrl = "nats://0.0.0.0:4444"
 
-        os.mkdir(temp)
         try:
-            p1 = subprocess.Popen(args)
+            p1 = TestRun.dorun(TestRun.profilePath1, pkey2, natsUrl)
+            p2 = TestRun.dorun(TestRun.profilePath2, pkey1, natsUrl)
+
+            p1.stdin.close()
             p1.wait()
-            self.assertTrue(os.path.isfile(os.path.join(temp, "public.pem")))
-            self.assertTrue(os.path.isfile(os.path.join(temp, "private.pem")))
+            # Interrupting Scanln not implemented
+            p2.stdin.write(bytes("Nice to meet you!\n", 'utf-8'))
+            p2.stdin.flush()
+            p2.wait(timeout=10)
+        except TimeoutError:
+            self.fail("Timeout exceeded")
         finally:
-            shutil.rmtree(temp)
+            p1.stdout.close()
+            p2.stdin.close()
+            p2.stdout.close()
+        self.assertTrue(True)
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stderr)
