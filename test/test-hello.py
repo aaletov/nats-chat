@@ -1,22 +1,20 @@
 import unittest
 import subprocess
-import signal
 import os
 import logging
 import sys
-import time
 import shutil
-import docker
 from typing import List, Tuple, Dict, Any
 
-user_home = os.getenv("HOME")
 home = os.getenv("NATS_CHAT_HOME")
-temp = os.path.join(home, "temp")
+user_home = os.getenv("HOME")
+user_nats_profile = os.path.join(user_home, ".natschat")
 
 def format_tuple(seq: Tuple, kv: Dict[str, str]) -> Tuple:
     return tuple(el.format(**kv) for el in seq)
 
 class TestGenerate(unittest.TestCase):
+    profile_path = os.path.join(home, "profile")
     @staticmethod
     def dogenerate(out=None) -> None:
         args = (
@@ -29,17 +27,27 @@ class TestGenerate(unittest.TestCase):
         p1.wait()
 
     def setUp(cls) -> None:
-        os.mkdir(temp)
+        os.mkdir(TestGenerate.profile_path)
 
     def tearDown(cls) -> None:
-        shutil.rmtree(temp)
+        shutil.rmtree(TestGenerate.profile_path)
+        if os.path.isdir(user_nats_profile):
+            shutil.rmtree(user_nats_profile)
 
     def test_generate(self) -> None:
-        TestGenerate.dogenerate(temp)
-        self.assertTrue(os.path.isfile(os.path.join(temp, "public.pem")))
-        self.assertTrue(os.path.isfile(os.path.join(temp, "private.pem")))
+        TestGenerate.dogenerate()
+        self.assertTrue(os.path.isfile(os.path.join(user_nats_profile, "public.pem")))
+        self.assertTrue(os.path.isfile(os.path.join(user_nats_profile, "private.pem")))
+
+    def test_generate_out(self) -> None:
+        TestGenerate.dogenerate(TestGenerate.profile_path)
+        self.assertTrue(os.path.isfile(os.path.join(TestGenerate.profile_path, "public.pem")))
+        self.assertTrue(os.path.isfile(os.path.join(TestGenerate.profile_path, "private.pem")))
 
 class TestRun(unittest.TestCase):
+    profilePath1 = os.path.join(home, "profile1")
+    profilePath2 = os.path.join(home, "profile2")
+
     @staticmethod
     def dorun(profile=None, recepientKey=None, natsUrl=None) -> Any:
         args = (
@@ -56,28 +64,24 @@ class TestRun(unittest.TestCase):
         return subprocess.Popen(args, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     
     def setUp(cls) -> None:
-        os.mkdir(temp)
-        profile1 = os.path.join(temp, "profile1")
-        profile2 = os.path.join(temp, "profile2")
-        os.mkdir(profile1)
-        os.mkdir(profile2)
-        TestGenerate.dogenerate(profile1)
-        TestGenerate.dogenerate(profile2)
+        os.mkdir(TestRun.profilePath1)
+        os.mkdir(TestRun.profilePath2)
+        TestGenerate.dogenerate(TestRun.profilePath1)
+        TestGenerate.dogenerate(TestRun.profilePath2)
 
     def tearDown(cls) -> None:
-        shutil.rmtree(temp)
+        shutil.rmtree(TestRun.profilePath1)
+        shutil.rmtree(TestRun.profilePath2)
     
     def test_hello(self):
         logger = logging.getLogger("LOGGER")
-        profile1 = os.path.join(temp, "profile1")
-        profile2 = os.path.join(temp, "profile2")
-        pkey1 = os.path.join(profile1, "public.pem")
-        pkey2 = os.path.join(profile2, "public.pem")
+        pkey1 = os.path.join(TestRun.profilePath1, "public.pem")
+        pkey2 = os.path.join(TestRun.profilePath2, "public.pem")
         natsUrl = "nats://0.0.0.0:4444"
 
         try:
-            p1 = TestRun.dorun(profile1, pkey2, natsUrl)
-            p2 = TestRun.dorun(profile2, pkey1, natsUrl)
+            p1 = TestRun.dorun(TestRun.profilePath1, pkey2, natsUrl)
+            p2 = TestRun.dorun(TestRun.profilePath2, pkey1, natsUrl)
 
             p1.stdin.write(bytes("Hello!\n", 'utf-8'))
             p1.stdin.flush()
