@@ -42,8 +42,6 @@ class TestNatsChat(unittest.TestCase):
             p1.wait()
             p2.stdin.close()
             p2.wait()
-            logger.info(t1)
-            logger.info(t2)
             self.assertTrue("Nice to meet you!" in t1)    
             self.assertTrue("Hello!" in t2)
         finally:

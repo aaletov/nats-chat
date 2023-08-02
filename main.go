@@ -1,9 +1,12 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/aaletov/nats-chat/pkg/handlers"
 	nested "github.com/antonfisher/nested-logrus-formatter"
@@ -12,16 +15,30 @@ import (
 )
 
 func main() {
+	logDir := "/var/log/nats-chat"
+	var err error
+	if _, err = os.Stat(logDir); errors.Is(err, os.ErrNotExist) {
+		if err = os.Mkdir(logDir, 0700); err != nil {
+			log.Fatalf("Error creating log directory: %s\n", err)
+		}
+	} else if err != nil {
+		log.Fatal(err)
+	}
+	logPath := filepath.Join(logDir, fmt.Sprintf("%d.%s", time.Now().Nanosecond(), "log"))
+	var logFile *os.File
+	if logFile, err = os.Create(logPath); err != nil {
+		log.Fatalf("Error creating log file: %s\n", err)
+	}
+	defer logFile.Close()
+
 	logger := logrus.New()
+	logger.Out = logFile
 	logger.SetFormatter(&nested.Formatter{
 		HideKeys:    true,
 		FieldsOrder: []string{"component", "method"},
 	})
 
-	var (
-		homeDir string
-		err     error
-	)
+	var homeDir string
 
 	if homeDir, err = os.UserHomeDir(); err != nil {
 		log.Fatalf("Unable to get user's home directory: %s", err)
