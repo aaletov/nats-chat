@@ -18,8 +18,11 @@ func main() {
 	logDir := "/var/log/nats-chat"
 	var err error
 	if _, err = os.Stat(logDir); errors.Is(err, os.ErrNotExist) {
-		if err = os.Mkdir(logDir, 0700); err != nil {
+		if err = os.Mkdir(logDir, 0777); err != nil {
 			log.Fatalf("Error creating log directory: %s\n", err)
+		}
+		if err = os.Chmod(logDir, 0777); err != nil {
+			log.Fatalf("Error chmod: %s\n", err)
 		}
 	} else if err != nil {
 		log.Fatal(err)

@@ -178,7 +178,7 @@ func (c *ChatConnection) Close() (err error) {
 		"method": "Close",
 	})
 	recepientOnline := fmt.Sprintf("online.%s", c.RecepientAddress)
-	offlineMsg := types.OnlineMessage{IsOnline: false}
+	offlineMsg := types.OnlineMessage{IsOnline: false, AuthorAddress: c.SenderAddress}
 	data, _ := json.Marshal(offlineMsg)
 	c.nc.Publish(recepientOnline, data)
 

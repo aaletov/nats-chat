@@ -98,6 +98,30 @@ class TestRun(unittest.TestCase):
         finally:
             p1.stdout.close()
             p2.stdout.close()
+    
+    def test_offline_closes(self):
+        logger = logging.getLogger("LOGGER")
+        pkey1 = os.path.join(TestRun.profilePath1, "public.pem")
+        pkey2 = os.path.join(TestRun.profilePath2, "public.pem")
+        natsUrl = "nats://0.0.0.0:4444"
+
+        try:
+            p1 = TestRun.dorun(TestRun.profilePath1, pkey2, natsUrl)
+            p2 = TestRun.dorun(TestRun.profilePath2, pkey1, natsUrl)
+
+            p1.stdin.close()
+            p1.wait()
+            # Interrupting Scanln not implemented
+            p2.stdin.write(bytes("Nice to meet you!\n", 'utf-8'))
+            p2.stdin.flush()
+            p2.wait(timeout=10)
+        except TimeoutError:
+            self.fail("Timeout exceeded")
+        finally:
+            p1.stdout.close()
+            p2.stdin.close()
+            p2.stdout.close()
+        self.assertTrue(True)
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stderr)
