@@ -46,6 +46,18 @@ func main() {
 				Action: handlers.NewGenerateHandler(),
 			},
 			{
+				Name:  "address",
+				Usage: "Print address of profile",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "profile",
+						Usage: "Profile to use",
+						Value: filepath.Join(homeDir, ".natschat"),
+					},
+				},
+				Action: handlers.NewAddressHandler(),
+			},
+			{
 				Name:  "run",
 				Usage: "Start a chat",
 				Flags: []cli.Flag{
@@ -55,8 +67,8 @@ func main() {
 						Value: filepath.Join(homeDir, ".natschat"),
 					},
 					&cli.StringFlag{
-						Name:     "recepient-key",
-						Usage:    "Public key of the recepient",
+						Name:     "recepient",
+						Usage:    "Address of the recepient",
 						Required: true,
 					},
 					&cli.StringFlag{

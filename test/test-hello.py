@@ -49,15 +49,15 @@ class TestRun(unittest.TestCase):
     profilePath2 = os.path.join(home, "profile2")
 
     @staticmethod
-    def dorun(profile=None, recepientKey=None, natsUrl=None) -> Any:
+    def dorun(profile=None, recepient=None, natsUrl=None) -> Any:
         args = (
             os.path.join(home, "build/nats-chat"),
             "run",
         )
         if profile != None:
             args = (*args, "--profile", profile)
-        if recepientKey != None:
-            args = (*args, "--recepient-key", recepientKey)
+        if recepient != None:
+            args = (*args, "--recepient-key", recepient)
         if natsUrl != None:
             args = (*args, "--nats-url", natsUrl)
 
