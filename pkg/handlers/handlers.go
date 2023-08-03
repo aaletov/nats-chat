@@ -141,12 +141,13 @@ func NewRunHandler(logger *logrus.Logger) cli.ActionFunc {
 						panic("not handled")
 					} else {
 						close(conn.OutcomingChan)
+						fmt.Println("User went offline. Press ENTER to exit")
 						return
 					}
 				default:
 					if !scanner.Scan() {
 						if scanner.Err() != nil {
-							panic("nos handled")
+							panic("not handled")
 						}
 						close(conn.OutcomingChan)
 						return
