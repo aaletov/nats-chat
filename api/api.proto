@@ -18,7 +18,7 @@ message OnlineRequest {
 }
 
 message ChatRequest {
-  optional string profile = 1;
+  string profile = 1;
   string recepient_address = 2;
   string nats_url = 3;
 }
