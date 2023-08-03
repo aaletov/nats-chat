@@ -23,10 +23,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DaemonClient interface {
-	Generate(ctx context.Context, in *GenerateRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	Address(ctx context.Context, in *AddressRequest, opts ...grpc.CallOption) (*AddressResponse, error)
-	Online(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
-	Chat(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	Online(ctx context.Context, in *OnlineRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	Chat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
@@ -38,25 +36,7 @@ func NewDaemonClient(cc grpc.ClientConnInterface) DaemonClient {
 	return &daemonClient{cc}
 }
 
-func (c *daemonClient) Generate(ctx context.Context, in *GenerateRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/api.Daemon/Generate", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *daemonClient) Address(ctx context.Context, in *AddressRequest, opts ...grpc.CallOption) (*AddressResponse, error) {
-	out := new(AddressResponse)
-	err := c.cc.Invoke(ctx, "/api.Daemon/Address", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *daemonClient) Online(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *daemonClient) Online(ctx context.Context, in *OnlineRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/api.Daemon/Online", in, out, opts...)
 	if err != nil {
@@ -65,7 +45,7 @@ func (c *daemonClient) Online(ctx context.Context, in *empty.Empty, opts ...grpc
 	return out, nil
 }
 
-func (c *daemonClient) Chat(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *daemonClient) Chat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/api.Daemon/Chat", in, out, opts...)
 	if err != nil {
@@ -87,10 +67,8 @@ func (c *daemonClient) Send(ctx context.Context, in *ChatMessage, opts ...grpc.C
 // All implementations must embed UnimplementedDaemonServer
 // for forward compatibility
 type DaemonServer interface {
-	Generate(context.Context, *GenerateRequest) (*empty.Empty, error)
-	Address(context.Context, *AddressRequest) (*AddressResponse, error)
-	Online(context.Context, *empty.Empty) (*empty.Empty, error)
-	Chat(context.Context, *empty.Empty) (*empty.Empty, error)
+	Online(context.Context, *OnlineRequest) (*empty.Empty, error)
+	Chat(context.Context, *ChatRequest) (*empty.Empty, error)
 	Send(context.Context, *ChatMessage) (*empty.Empty, error)
 	mustEmbedUnimplementedDaemonServer()
 }
@@ -99,16 +77,10 @@ type DaemonServer interface {
 type UnimplementedDaemonServer struct {
 }
 
-func (UnimplementedDaemonServer) Generate(context.Context, *GenerateRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Generate not implemented")
-}
-func (UnimplementedDaemonServer) Address(context.Context, *AddressRequest) (*AddressResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Address not implemented")
-}
-func (UnimplementedDaemonServer) Online(context.Context, *empty.Empty) (*empty.Empty, error) {
+func (UnimplementedDaemonServer) Online(context.Context, *OnlineRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Online not implemented")
 }
-func (UnimplementedDaemonServer) Chat(context.Context, *empty.Empty) (*empty.Empty, error) {
+func (UnimplementedDaemonServer) Chat(context.Context, *ChatRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Chat not implemented")
 }
 func (UnimplementedDaemonServer) Send(context.Context, *ChatMessage) (*empty.Empty, error) {
@@ -127,44 +99,8 @@ func RegisterDaemonServer(s grpc.ServiceRegistrar, srv DaemonServer) {
 	s.RegisterService(&Daemon_ServiceDesc, srv)
 }
 
-func _Daemon_Generate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GenerateRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DaemonServer).Generate(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/api.Daemon/Generate",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DaemonServer).Generate(ctx, req.(*GenerateRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Daemon_Address_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AddressRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DaemonServer).Address(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/api.Daemon/Address",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DaemonServer).Address(ctx, req.(*AddressRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Daemon_Online_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(empty.Empty)
+	in := new(OnlineRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -176,13 +112,13 @@ func _Daemon_Online_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: "/api.Daemon/Online",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DaemonServer).Online(ctx, req.(*empty.Empty))
+		return srv.(DaemonServer).Online(ctx, req.(*OnlineRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Daemon_Chat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(empty.Empty)
+	in := new(ChatRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -194,7 +130,7 @@ func _Daemon_Chat_Handler(srv interface{}, ctx context.Context, dec func(interfa
 		FullMethod: "/api.Daemon/Chat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DaemonServer).Chat(ctx, req.(*empty.Empty))
+		return srv.(DaemonServer).Chat(ctx, req.(*ChatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -224,14 +160,6 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "api.Daemon",
 	HandlerType: (*DaemonServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Generate",
-			Handler:    _Daemon_Generate_Handler,
-		},
-		{
-			MethodName: "Address",
-			Handler:    _Daemon_Address_Handler,
-		},
 		{
 			MethodName: "Online",
 			Handler:    _Daemon_Online_Handler,

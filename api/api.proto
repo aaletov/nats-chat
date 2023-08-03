@@ -8,23 +8,13 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 service Daemon {
-  rpc Generate(GenerateRequest) returns (google.protobuf.Empty) {}
-  rpc Address(AddressRequest) returns (AddressResponse) {}
-  rpc Online(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  rpc Chat(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Online(OnlineRequest) returns (google.protobuf.Empty) {}
+  rpc Chat(ChatRequest) returns (google.protobuf.Empty) {}
   rpc Send(ChatMessage) returns (google.protobuf.Empty) {}
 }
 
-message GenerateRequest {
-  optional string out = 1;
-}
-
-message AddressRequest {
-  optional string profile = 1;
-}
-
-message AddressResponse {
-  string address = 1;
+message OnlineRequest {
+  bool is_online = 1;
 }
 
 message ChatRequest {
