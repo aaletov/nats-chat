@@ -19,10 +19,10 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// NatsChatServerClient is the client API for NatsChatServer service.
+// DaemonClient is the client API for Daemon service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type NatsChatServerClient interface {
+type DaemonClient interface {
 	Generate(ctx context.Context, in *GenerateRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Address(ctx context.Context, in *AddressRequest, opts ...grpc.CallOption) (*AddressResponse, error)
 	Online(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
@@ -30,305 +30,305 @@ type NatsChatServerClient interface {
 	Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
-type natsChatServerClient struct {
+type daemonClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewNatsChatServerClient(cc grpc.ClientConnInterface) NatsChatServerClient {
-	return &natsChatServerClient{cc}
+func NewDaemonClient(cc grpc.ClientConnInterface) DaemonClient {
+	return &daemonClient{cc}
 }
 
-func (c *natsChatServerClient) Generate(ctx context.Context, in *GenerateRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *daemonClient) Generate(ctx context.Context, in *GenerateRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/api.NatsChatServer/Generate", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.Daemon/Generate", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *natsChatServerClient) Address(ctx context.Context, in *AddressRequest, opts ...grpc.CallOption) (*AddressResponse, error) {
+func (c *daemonClient) Address(ctx context.Context, in *AddressRequest, opts ...grpc.CallOption) (*AddressResponse, error) {
 	out := new(AddressResponse)
-	err := c.cc.Invoke(ctx, "/api.NatsChatServer/Address", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.Daemon/Address", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *natsChatServerClient) Online(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *daemonClient) Online(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/api.NatsChatServer/Online", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.Daemon/Online", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *natsChatServerClient) Chat(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *daemonClient) Chat(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/api.NatsChatServer/Chat", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.Daemon/Chat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *natsChatServerClient) Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *daemonClient) Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/api.NatsChatServer/Send", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.Daemon/Send", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// NatsChatServerServer is the server API for NatsChatServer service.
-// All implementations must embed UnimplementedNatsChatServerServer
+// DaemonServer is the server API for Daemon service.
+// All implementations must embed UnimplementedDaemonServer
 // for forward compatibility
-type NatsChatServerServer interface {
+type DaemonServer interface {
 	Generate(context.Context, *GenerateRequest) (*empty.Empty, error)
 	Address(context.Context, *AddressRequest) (*AddressResponse, error)
 	Online(context.Context, *empty.Empty) (*empty.Empty, error)
 	Chat(context.Context, *empty.Empty) (*empty.Empty, error)
 	Send(context.Context, *ChatMessage) (*empty.Empty, error)
-	mustEmbedUnimplementedNatsChatServerServer()
+	mustEmbedUnimplementedDaemonServer()
 }
 
-// UnimplementedNatsChatServerServer must be embedded to have forward compatible implementations.
-type UnimplementedNatsChatServerServer struct {
+// UnimplementedDaemonServer must be embedded to have forward compatible implementations.
+type UnimplementedDaemonServer struct {
 }
 
-func (UnimplementedNatsChatServerServer) Generate(context.Context, *GenerateRequest) (*empty.Empty, error) {
+func (UnimplementedDaemonServer) Generate(context.Context, *GenerateRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Generate not implemented")
 }
-func (UnimplementedNatsChatServerServer) Address(context.Context, *AddressRequest) (*AddressResponse, error) {
+func (UnimplementedDaemonServer) Address(context.Context, *AddressRequest) (*AddressResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Address not implemented")
 }
-func (UnimplementedNatsChatServerServer) Online(context.Context, *empty.Empty) (*empty.Empty, error) {
+func (UnimplementedDaemonServer) Online(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Online not implemented")
 }
-func (UnimplementedNatsChatServerServer) Chat(context.Context, *empty.Empty) (*empty.Empty, error) {
+func (UnimplementedDaemonServer) Chat(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Chat not implemented")
 }
-func (UnimplementedNatsChatServerServer) Send(context.Context, *ChatMessage) (*empty.Empty, error) {
+func (UnimplementedDaemonServer) Send(context.Context, *ChatMessage) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Send not implemented")
 }
-func (UnimplementedNatsChatServerServer) mustEmbedUnimplementedNatsChatServerServer() {}
+func (UnimplementedDaemonServer) mustEmbedUnimplementedDaemonServer() {}
 
-// UnsafeNatsChatServerServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to NatsChatServerServer will
+// UnsafeDaemonServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DaemonServer will
 // result in compilation errors.
-type UnsafeNatsChatServerServer interface {
-	mustEmbedUnimplementedNatsChatServerServer()
+type UnsafeDaemonServer interface {
+	mustEmbedUnimplementedDaemonServer()
 }
 
-func RegisterNatsChatServerServer(s grpc.ServiceRegistrar, srv NatsChatServerServer) {
-	s.RegisterService(&NatsChatServer_ServiceDesc, srv)
+func RegisterDaemonServer(s grpc.ServiceRegistrar, srv DaemonServer) {
+	s.RegisterService(&Daemon_ServiceDesc, srv)
 }
 
-func _NatsChatServer_Generate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Daemon_Generate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GenerateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NatsChatServerServer).Generate(ctx, in)
+		return srv.(DaemonServer).Generate(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.NatsChatServer/Generate",
+		FullMethod: "/api.Daemon/Generate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NatsChatServerServer).Generate(ctx, req.(*GenerateRequest))
+		return srv.(DaemonServer).Generate(ctx, req.(*GenerateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NatsChatServer_Address_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Daemon_Address_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AddressRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NatsChatServerServer).Address(ctx, in)
+		return srv.(DaemonServer).Address(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.NatsChatServer/Address",
+		FullMethod: "/api.Daemon/Address",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NatsChatServerServer).Address(ctx, req.(*AddressRequest))
+		return srv.(DaemonServer).Address(ctx, req.(*AddressRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NatsChatServer_Online_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Daemon_Online_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NatsChatServerServer).Online(ctx, in)
+		return srv.(DaemonServer).Online(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.NatsChatServer/Online",
+		FullMethod: "/api.Daemon/Online",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NatsChatServerServer).Online(ctx, req.(*empty.Empty))
+		return srv.(DaemonServer).Online(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NatsChatServer_Chat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Daemon_Chat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(empty.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NatsChatServerServer).Chat(ctx, in)
+		return srv.(DaemonServer).Chat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.NatsChatServer/Chat",
+		FullMethod: "/api.Daemon/Chat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NatsChatServerServer).Chat(ctx, req.(*empty.Empty))
+		return srv.(DaemonServer).Chat(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NatsChatServer_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Daemon_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ChatMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NatsChatServerServer).Send(ctx, in)
+		return srv.(DaemonServer).Send(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.NatsChatServer/Send",
+		FullMethod: "/api.Daemon/Send",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NatsChatServerServer).Send(ctx, req.(*ChatMessage))
+		return srv.(DaemonServer).Send(ctx, req.(*ChatMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// NatsChatServer_ServiceDesc is the grpc.ServiceDesc for NatsChatServer service.
+// Daemon_ServiceDesc is the grpc.ServiceDesc for Daemon service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var NatsChatServer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.NatsChatServer",
-	HandlerType: (*NatsChatServerServer)(nil),
+var Daemon_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.Daemon",
+	HandlerType: (*DaemonServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Generate",
-			Handler:    _NatsChatServer_Generate_Handler,
+			Handler:    _Daemon_Generate_Handler,
 		},
 		{
 			MethodName: "Address",
-			Handler:    _NatsChatServer_Address_Handler,
+			Handler:    _Daemon_Address_Handler,
 		},
 		{
 			MethodName: "Online",
-			Handler:    _NatsChatServer_Online_Handler,
+			Handler:    _Daemon_Online_Handler,
 		},
 		{
 			MethodName: "Chat",
-			Handler:    _NatsChatServer_Chat_Handler,
+			Handler:    _Daemon_Chat_Handler,
 		},
 		{
 			MethodName: "Send",
-			Handler:    _NatsChatServer_Send_Handler,
+			Handler:    _Daemon_Send_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api.proto",
 }
 
-// NatsChatClientClient is the client API for NatsChatClient service.
+// CliClient is the client API for Cli service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type NatsChatClientClient interface {
+type CliClient interface {
 	Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
-type natsChatClientClient struct {
+type cliClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewNatsChatClientClient(cc grpc.ClientConnInterface) NatsChatClientClient {
-	return &natsChatClientClient{cc}
+func NewCliClient(cc grpc.ClientConnInterface) CliClient {
+	return &cliClient{cc}
 }
 
-func (c *natsChatClientClient) Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *cliClient) Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/api.NatsChatClient/Send", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.Cli/Send", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// NatsChatClientServer is the server API for NatsChatClient service.
-// All implementations must embed UnimplementedNatsChatClientServer
+// CliServer is the server API for Cli service.
+// All implementations must embed UnimplementedCliServer
 // for forward compatibility
-type NatsChatClientServer interface {
+type CliServer interface {
 	Send(context.Context, *ChatMessage) (*empty.Empty, error)
-	mustEmbedUnimplementedNatsChatClientServer()
+	mustEmbedUnimplementedCliServer()
 }
 
-// UnimplementedNatsChatClientServer must be embedded to have forward compatible implementations.
-type UnimplementedNatsChatClientServer struct {
+// UnimplementedCliServer must be embedded to have forward compatible implementations.
+type UnimplementedCliServer struct {
 }
 
-func (UnimplementedNatsChatClientServer) Send(context.Context, *ChatMessage) (*empty.Empty, error) {
+func (UnimplementedCliServer) Send(context.Context, *ChatMessage) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Send not implemented")
 }
-func (UnimplementedNatsChatClientServer) mustEmbedUnimplementedNatsChatClientServer() {}
+func (UnimplementedCliServer) mustEmbedUnimplementedCliServer() {}
 
-// UnsafeNatsChatClientServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to NatsChatClientServer will
+// UnsafeCliServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CliServer will
 // result in compilation errors.
-type UnsafeNatsChatClientServer interface {
-	mustEmbedUnimplementedNatsChatClientServer()
+type UnsafeCliServer interface {
+	mustEmbedUnimplementedCliServer()
 }
 
-func RegisterNatsChatClientServer(s grpc.ServiceRegistrar, srv NatsChatClientServer) {
-	s.RegisterService(&NatsChatClient_ServiceDesc, srv)
+func RegisterCliServer(s grpc.ServiceRegistrar, srv CliServer) {
+	s.RegisterService(&Cli_ServiceDesc, srv)
 }
 
-func _NatsChatClient_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Cli_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ChatMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NatsChatClientServer).Send(ctx, in)
+		return srv.(CliServer).Send(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.NatsChatClient/Send",
+		FullMethod: "/api.Cli/Send",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NatsChatClientServer).Send(ctx, req.(*ChatMessage))
+		return srv.(CliServer).Send(ctx, req.(*ChatMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// NatsChatClient_ServiceDesc is the grpc.ServiceDesc for NatsChatClient service.
+// Cli_ServiceDesc is the grpc.ServiceDesc for Cli service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var NatsChatClient_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.NatsChatClient",
-	HandlerType: (*NatsChatClientServer)(nil),
+var Cli_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.Cli",
+	HandlerType: (*CliServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Send",
-			Handler:    _NatsChatClient_Send_Handler,
+			Handler:    _Cli_Send_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
