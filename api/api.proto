@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+option go_package = "github.com/aaletov/nats-chat/api/generated";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+package api;
+
+service NatsChatServer {
+  rpc Generate(GenerateRequest) returns (google.protobuf.Empty) {}
+  rpc Address(AddressRequest) returns (AddressResponse) {}
+  rpc Online(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Chat(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Send(ChatMessage) returns (google.protobuf.Empty) {}
+}
+
+message GenerateRequest {
+  optional string out = 1;
+}
+
+message AddressRequest {
+  optional string profile = 1;
+}
+
+message AddressResponse {
+  string address = 1;
+}
+
+message ChatRequest {
+  optional string profile = 1;
+  string recepient_address = 2;
+  string nats_url = 3;
+}
+
+message ChatMessage {
+  google.protobuf.Timestamp time = 1;
+  string text = 2;
+}
+
+service NatsChatClient {
+  rpc Send(ChatMessage) returns (google.protobuf.Empty) {}
+}
+
