@@ -127,6 +127,30 @@ func generateHandler(cCtx *cli.Context, logger *logrus.Logger) error {
 	return nil
 }
 
+func NewAddressHandler() cli.ActionFunc {
+	return ApplyLoggingWrapper(addressHandler)
+}
+
+func addressHandler(cCtx *cli.Context, logger *logrus.Logger) error {
+	ll := logger.WithFields(logrus.Fields{
+		"component": "AddressHandler",
+	})
+	profilePath := cCtx.String("profile")
+	var (
+		err     error
+		profile profiles.SenderProfile
+	)
+
+	if profile, err = readSenderProfile(profilePath); err != nil {
+		return err
+	}
+	ll.Debugf("Read sender profile %s\n", profilePath)
+
+	fmt.Printf("Your address is:\n%s\n", profile.GetAddress())
+
+	return nil
+}
+
 func NewRunHandler() cli.ActionFunc {
 	return ApplyLoggingWrapper(runHandler)
 }
