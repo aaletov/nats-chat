@@ -9,6 +9,8 @@ generate-proto:
 	protoc --proto_path=./api \
 		--go_out=./api/generated \
 		--go_opt=paths=source_relative \
+		--go-grpc_out=./api/generated \
+		--go-grpc_opt=paths=source_relative \
 		--experimental_allow_proto3_optional=true \
 		./api/api.proto
 

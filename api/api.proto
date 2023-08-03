@@ -1,11 +1,11 @@
 syntax = "proto3";
 
+package api;
+
 option go_package = "github.com/aaletov/nats-chat/api/generated";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-
-package api;
 
 service NatsChatServer {
   rpc Generate(GenerateRequest) returns (google.protobuf.Empty) {}
