@@ -67,8 +67,8 @@ func main() {
 						Value: filepath.Join(homeDir, ".natschat"),
 					},
 					&cli.StringFlag{
-						Name:     "recepient-key",
-						Usage:    "Public key of the recepient",
+						Name:     "recepient",
+						Usage:    "Address of the recepient",
 						Required: true,
 					},
 					&cli.StringFlag{

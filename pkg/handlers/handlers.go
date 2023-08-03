@@ -161,23 +161,17 @@ func runHandler(cCtx *cli.Context, logger *logrus.Logger) error {
 	})
 
 	profilePath := cCtx.String("profile")
-	recepientKeyPath := cCtx.String("recepient-key")
+	recepientAddress := cCtx.String("recepient")
 
 	var (
-		err              error
-		senderProfile    profiles.SenderProfile
-		recepientProfile profiles.RecepientProfile
+		err           error
+		senderProfile profiles.SenderProfile
 	)
 
 	if senderProfile, err = readSenderProfile(profilePath); err != nil {
 		return err
 	}
 	ll.Println("Read sender profile")
-
-	if recepientProfile, err = readRecepientProfile(recepientKeyPath); err != nil {
-		return err
-	}
-	ll.Println("Read recepient profile")
 
 	options := []nats.Option{nats.Timeout(10 * time.Second)}
 	var nc *nats.Conn
@@ -191,10 +185,10 @@ func runHandler(cCtx *cli.Context, logger *logrus.Logger) error {
 	session.Open()
 	defer session.Close()
 	var conn *ChatConnection
-	if conn, err = session.Dial(recepientProfile.GetAddress()); err != nil {
-		return fmt.Errorf("error dialing %s: %s", recepientProfile.GetAddress(), err)
+	if conn, err = session.Dial(recepientAddress); err != nil {
+		return fmt.Errorf("error dialing %s: %s", recepientAddress, err)
 	}
-	ll.Printf("Successfully dialed: %s\n", recepientProfile.GetAddress())
+	ll.Printf("Successfully dialed: %s\n", recepientAddress)
 	defer conn.Close()
 
 	go func() {
