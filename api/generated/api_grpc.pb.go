@@ -24,8 +24,9 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DaemonClient interface {
 	Online(ctx context.Context, in *OnlineRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	Chat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error)
+	CreateChat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	DeleteChat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	Send(ctx context.Context, opts ...grpc.CallOption) (Daemon_SendClient, error)
 }
 
 type daemonClient struct {
@@ -45,22 +46,53 @@ func (c *daemonClient) Online(ctx context.Context, in *OnlineRequest, opts ...gr
 	return out, nil
 }
 
-func (c *daemonClient) Chat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *daemonClient) CreateChat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/api.Daemon/Chat", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.Daemon/CreateChat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *daemonClient) Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *daemonClient) DeleteChat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/api.Daemon/Send", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.Daemon/DeleteChat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *daemonClient) Send(ctx context.Context, opts ...grpc.CallOption) (Daemon_SendClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Daemon_ServiceDesc.Streams[0], "/api.Daemon/Send", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &daemonSendClient{stream}
+	return x, nil
+}
+
+type Daemon_SendClient interface {
+	Send(*ChatMessage) error
+	Recv() (*ChatMessage, error)
+	grpc.ClientStream
+}
+
+type daemonSendClient struct {
+	grpc.ClientStream
+}
+
+func (x *daemonSendClient) Send(m *ChatMessage) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *daemonSendClient) Recv() (*ChatMessage, error) {
+	m := new(ChatMessage)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // DaemonServer is the server API for Daemon service.
@@ -68,8 +100,9 @@ func (c *daemonClient) Send(ctx context.Context, in *ChatMessage, opts ...grpc.C
 // for forward compatibility
 type DaemonServer interface {
 	Online(context.Context, *OnlineRequest) (*empty.Empty, error)
-	Chat(context.Context, *ChatRequest) (*empty.Empty, error)
-	Send(context.Context, *ChatMessage) (*empty.Empty, error)
+	CreateChat(context.Context, *ChatRequest) (*empty.Empty, error)
+	DeleteChat(context.Context, *ChatRequest) (*empty.Empty, error)
+	Send(Daemon_SendServer) error
 	mustEmbedUnimplementedDaemonServer()
 }
 
@@ -80,11 +113,14 @@ type UnimplementedDaemonServer struct {
 func (UnimplementedDaemonServer) Online(context.Context, *OnlineRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Online not implemented")
 }
-func (UnimplementedDaemonServer) Chat(context.Context, *ChatRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Chat not implemented")
+func (UnimplementedDaemonServer) CreateChat(context.Context, *ChatRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateChat not implemented")
 }
-func (UnimplementedDaemonServer) Send(context.Context, *ChatMessage) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Send not implemented")
+func (UnimplementedDaemonServer) DeleteChat(context.Context, *ChatRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteChat not implemented")
+}
+func (UnimplementedDaemonServer) Send(Daemon_SendServer) error {
+	return status.Errorf(codes.Unimplemented, "method Send not implemented")
 }
 func (UnimplementedDaemonServer) mustEmbedUnimplementedDaemonServer() {}
 
@@ -117,40 +153,66 @@ func _Daemon_Online_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_Chat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Daemon_CreateChat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ChatRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DaemonServer).Chat(ctx, in)
+		return srv.(DaemonServer).CreateChat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.Daemon/Chat",
+		FullMethod: "/api.Daemon/CreateChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DaemonServer).Chat(ctx, req.(*ChatRequest))
+		return srv.(DaemonServer).CreateChat(ctx, req.(*ChatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Daemon_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChatMessage)
+func _Daemon_DeleteChat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChatRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DaemonServer).Send(ctx, in)
+		return srv.(DaemonServer).DeleteChat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.Daemon/Send",
+		FullMethod: "/api.Daemon/DeleteChat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DaemonServer).Send(ctx, req.(*ChatMessage))
+		return srv.(DaemonServer).DeleteChat(ctx, req.(*ChatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _Daemon_Send_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(DaemonServer).Send(&daemonSendServer{stream})
+}
+
+type Daemon_SendServer interface {
+	Send(*ChatMessage) error
+	Recv() (*ChatMessage, error)
+	grpc.ServerStream
+}
+
+type daemonSendServer struct {
+	grpc.ServerStream
+}
+
+func (x *daemonSendServer) Send(m *ChatMessage) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *daemonSendServer) Recv() (*ChatMessage, error) {
+	m := new(ChatMessage)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Daemon_ServiceDesc is the grpc.ServiceDesc for Daemon service.
@@ -165,100 +227,21 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Daemon_Online_Handler,
 		},
 		{
-			MethodName: "Chat",
-			Handler:    _Daemon_Chat_Handler,
+			MethodName: "CreateChat",
+			Handler:    _Daemon_CreateChat_Handler,
 		},
 		{
-			MethodName: "Send",
-			Handler:    _Daemon_Send_Handler,
+			MethodName: "DeleteChat",
+			Handler:    _Daemon_DeleteChat_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "api.proto",
-}
-
-// CliClient is the client API for Cli service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type CliClient interface {
-	Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error)
-}
-
-type cliClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewCliClient(cc grpc.ClientConnInterface) CliClient {
-	return &cliClient{cc}
-}
-
-func (c *cliClient) Send(ctx context.Context, in *ChatMessage, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/api.Cli/Send", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// CliServer is the server API for Cli service.
-// All implementations must embed UnimplementedCliServer
-// for forward compatibility
-type CliServer interface {
-	Send(context.Context, *ChatMessage) (*empty.Empty, error)
-	mustEmbedUnimplementedCliServer()
-}
-
-// UnimplementedCliServer must be embedded to have forward compatible implementations.
-type UnimplementedCliServer struct {
-}
-
-func (UnimplementedCliServer) Send(context.Context, *ChatMessage) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Send not implemented")
-}
-func (UnimplementedCliServer) mustEmbedUnimplementedCliServer() {}
-
-// UnsafeCliServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to CliServer will
-// result in compilation errors.
-type UnsafeCliServer interface {
-	mustEmbedUnimplementedCliServer()
-}
-
-func RegisterCliServer(s grpc.ServiceRegistrar, srv CliServer) {
-	s.RegisterService(&Cli_ServiceDesc, srv)
-}
-
-func _Cli_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChatMessage)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CliServer).Send(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/api.Cli/Send",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CliServer).Send(ctx, req.(*ChatMessage))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// Cli_ServiceDesc is the grpc.ServiceDesc for Cli service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var Cli_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.Cli",
-	HandlerType: (*CliServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "Send",
-			Handler:    _Cli_Send_Handler,
+			StreamName:    "Send",
+			Handler:       _Daemon_Send_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "api.proto",
 }

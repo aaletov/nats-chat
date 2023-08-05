@@ -9,26 +9,22 @@ import "google/protobuf/timestamp.proto";
 
 service Daemon {
   rpc Online(OnlineRequest) returns (google.protobuf.Empty) {}
-  rpc Chat(ChatRequest) returns (google.protobuf.Empty) {}
-  rpc Send(ChatMessage) returns (google.protobuf.Empty) {}
+  rpc CreateChat(ChatRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteChat(ChatRequest) returns (google.protobuf.Empty) {}
+  rpc Send(stream ChatMessage) returns (stream ChatMessage) {}
 }
 
 message OnlineRequest {
-  bool is_online = 1;
+  string nats_url = 1;
+  string sender_address = 2;
+  bool is_online = 3;
 }
 
 message ChatRequest {
-  string profile = 1;
-  string recepient_address = 2;
-  string nats_url = 3;
+  string recepient_address = 1;
 }
 
 message ChatMessage {
   google.protobuf.Timestamp time = 1;
   string text = 2;
 }
-
-service Cli {
-  rpc Send(ChatMessage) returns (google.protobuf.Empty) {}
-}
-
