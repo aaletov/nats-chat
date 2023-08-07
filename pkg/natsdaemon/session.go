@@ -3,6 +3,7 @@ package natsdaemon
 import (
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	api "github.com/aaletov/nats-chat/api/generated"
@@ -199,7 +200,12 @@ func (c *ChatConnection) Send(srv api.Daemon_SendServer) error {
 		)
 		defer func() { eof <- struct{}{} }()
 		for {
-			if cmsg, err = srv.Recv(); err != nil {
+			cmsg, err = srv.Recv()
+			if err != nil {
+				if err == io.EOF {
+					ll.Debugln("Got eof from client")
+					return nil
+				}
 				return fmt.Errorf("Unable to get message: %s", err)
 			}
 			ll.Debugf("Got message from cli: %s", cmsg)
