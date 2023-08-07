@@ -173,17 +173,23 @@ func (c *ChatConnection) Send(srv api.Daemon_SendServer) error {
 	})
 	recepientChat := fmt.Sprintf("chat.%s", c.RecepientAddress)
 
+	eof := make(chan struct{})
 	g := errgroup.Group{}
 	g.Go(func() (err error) {
-		for cmsg := range c.incomingChan {
-			ll.Debugf("Got message from nats: %s", cmsg)
-			if err = srv.Send(cmsg); err != nil {
-				return fmt.Errorf("Unable to send message: %s\n", err)
+		for {
+			select {
+			case <-eof:
+				ll.Debugln("Got EOF from cli, exiting server send loop")
+				return nil
+			case cmsg := <-c.incomingChan:
+				ll.Debugf("Got message from nats: %s", cmsg)
+				srv.Context()
+				if err = srv.Send(cmsg); err != nil {
+					return fmt.Errorf("Unable to send message: %s\n", err)
+				}
+				ll.Debugf("Sent message to cli: %s", cmsg)
 			}
-			ll.Debugf("Sent message to cli: %s", cmsg)
 		}
-		ll.Debugln("Exiting server send loop")
-		return nil
 	})
 
 	g.Go(func() (err error) {
@@ -191,9 +197,9 @@ func (c *ChatConnection) Send(srv api.Daemon_SendServer) error {
 			cmsg *api.ChatMessage
 			data []byte
 		)
+		defer func() { eof <- struct{}{} }()
 		for {
 			if cmsg, err = srv.Recv(); err != nil {
-				ll.Debugf("Got error stom cli, exiting: %s", err)
 				return fmt.Errorf("Unable to get message: %s", err)
 			}
 			ll.Debugf("Got message from cli: %s", cmsg)
