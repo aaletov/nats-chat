@@ -26,12 +26,15 @@ build-all: build-cli build-daemon
 
 docker-build-builder:
 	docker build -f Dockerfile.builder -t nats-chat-builder:$(TAG) .
+	docker tag nats-chat-builder:$(TAG) nats-chat-builder:latest
 
 docker-build-cli: docker-build-builder
 	docker build -f Dockerfile.cli -t nats-chat-cli:$(TAG) .
+	docker tag nats-chat-cli:$(TAG) nats-chat-cli:latest
 
 docker-build-daemon: docker-build-builder
 	docker build -f Dockerfile.daemon -t nats-chat-daemon:$(TAG) .
+	docker tag nats-chat-daemon:$(TAG) nats-chat-daemon:latest
 
 docker-build-all: docker-build-cli docker-build-daemon
 
