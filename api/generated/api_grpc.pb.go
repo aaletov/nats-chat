@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DaemonClient interface {
 	Online(ctx context.Context, in *OnlineRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	Offline(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	CreateChat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	DeleteChat(ctx context.Context, in *ChatRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Send(ctx context.Context, opts ...grpc.CallOption) (Daemon_SendClient, error)
@@ -40,6 +41,15 @@ func NewDaemonClient(cc grpc.ClientConnInterface) DaemonClient {
 func (c *daemonClient) Online(ctx context.Context, in *OnlineRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/api.Daemon/Online", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *daemonClient) Offline(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/api.Daemon/Offline", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +110,7 @@ func (x *daemonSendClient) Recv() (*ChatMessage, error) {
 // for forward compatibility
 type DaemonServer interface {
 	Online(context.Context, *OnlineRequest) (*empty.Empty, error)
+	Offline(context.Context, *empty.Empty) (*empty.Empty, error)
 	CreateChat(context.Context, *ChatRequest) (*empty.Empty, error)
 	DeleteChat(context.Context, *ChatRequest) (*empty.Empty, error)
 	Send(Daemon_SendServer) error
@@ -112,6 +123,9 @@ type UnimplementedDaemonServer struct {
 
 func (UnimplementedDaemonServer) Online(context.Context, *OnlineRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Online not implemented")
+}
+func (UnimplementedDaemonServer) Offline(context.Context, *empty.Empty) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Offline not implemented")
 }
 func (UnimplementedDaemonServer) CreateChat(context.Context, *ChatRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateChat not implemented")
@@ -149,6 +163,24 @@ func _Daemon_Online_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DaemonServer).Online(ctx, req.(*OnlineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Daemon_Offline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServer).Offline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Daemon/Offline",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServer).Offline(ctx, req.(*empty.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -225,6 +257,10 @@ var Daemon_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Online",
 			Handler:    _Daemon_Online_Handler,
+		},
+		{
+			MethodName: "Offline",
+			Handler:    _Daemon_Offline_Handler,
 		},
 		{
 			MethodName: "CreateChat",

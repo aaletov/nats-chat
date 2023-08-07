@@ -1,0 +1,8 @@
+FROM nats-chat-builder:latest as builder
+COPY . ./nats-chat
+WORKDIR /opt/nats-chat
+RUN make build-cli
+FROM alpine:3.18
+WORKDIR /opt/nats-chat
+COPY --from=builder /opt/nats-chat/build/nats-chat-cli .
+CMD ["sleep", "infinity"]
