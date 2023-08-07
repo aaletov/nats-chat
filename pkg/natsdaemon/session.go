@@ -1,17 +1,16 @@
-package server
+package natsdaemon
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	api "github.com/aaletov/nats-chat/api/generated"
-	"github.com/aaletov/nats-chat/pkg/types"
 	"github.com/hashicorp/go-multierror"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 )
 
 type Session struct {
@@ -30,17 +29,15 @@ func Online(logger *logrus.Logger, nc *nats.Conn, senderAddress string) (*Sessio
 	sub, err := nc.Subscribe(senderPing, func(msg *nats.Msg) {
 		var (
 			err        error
-			pmsg       types.PingMessage
-			omsg       types.OnlineMessage
+			pmsg       *api.NatsPing = &api.NatsPing{}
 			marshalled []byte
 		)
-
-		if err = json.Unmarshal(msg.Data, &pmsg); err != nil {
+		if err = proto.Unmarshal(msg.Data, pmsg); err != nil {
 			ll.Printf("error unmarshalling ping message: %s\n", err)
 		}
 		recepientOnline := fmt.Sprintf("online.%s", pmsg.AuthorAddress)
-		omsg = types.OnlineMessage{AuthorAddress: senderAddress, IsOnline: true}
-		if marshalled, err = json.Marshal(omsg); err != nil {
+		omsg := &api.NatsOnline{AuthorAddress: senderAddress, IsOnline: true}
+		if marshalled, err = proto.Marshal(omsg); err != nil {
 			ll.Printf("error marshalling online message: %s\n", err)
 		}
 		nc.Publish(recepientOnline, marshalled)
@@ -67,7 +64,7 @@ func (s *Session) Close() (err error) {
 func NewIncomingMsgHandler(logger *logrus.Logger, incomingChan chan *api.ChatMessage) nats.MsgHandler {
 	return func(msg *nats.Msg) {
 		cmsg := &api.ChatMessage{}
-		if err := json.Unmarshal(msg.Data, cmsg); err != nil {
+		if err := proto.Unmarshal(msg.Data, cmsg); err != nil {
 			logger.Fatalf("Error unmarshalling message: %s", err)
 			msg.Nak()
 			return
@@ -97,8 +94,8 @@ func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 	var err error
 	online := make(chan bool)
 	onlineSub, err := s.nc.Subscribe(senderOnline, func(msg *nats.Msg) {
-		var omsg types.OnlineMessage
-		if err := json.Unmarshal(msg.Data, &omsg); err != nil {
+		omsg := &api.NatsOnline{}
+		if err := proto.Unmarshal(msg.Data, omsg); err != nil {
 			msg.Nak()
 			return
 		}
@@ -120,12 +117,12 @@ func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 
 	ticker := time.NewTicker(33 * time.Millisecond)
 	err = func() error {
-		pmsg := types.PingMessage{AuthorAddress: s.senderAddress}
+		pmsg := &api.NatsPing{AuthorAddress: s.senderAddress}
 		var (
 			err  error
 			data []byte
 		)
-		if data, err = json.Marshal(pmsg); err != nil {
+		if data, err = proto.Marshal(pmsg); err != nil {
 			ll.Debugf("error marshal ping message: %s\n", err)
 		}
 		for {
@@ -204,7 +201,7 @@ func (c *ChatConnection) Send(srv api.Daemon_SendServer) error {
 			}
 			ll.Debugf("Got message from cli: %s", cmsg)
 			// Use generated marshallers
-			if data, err = json.Marshal(cmsg); err != nil {
+			if data, err = proto.Marshal(cmsg); err != nil {
 				ll.Fatalf("unable to marshal message: %s\n", err)
 			}
 			c.nc.Publish(recepientChat, data)
@@ -222,8 +219,8 @@ func (c *ChatConnection) Close() (err error) {
 	})
 	ll.Printf("Closing ChatConnection %s\n", c.RecepientAddress)
 	recepientOnline := fmt.Sprintf("online.%s", c.RecepientAddress)
-	offlineMsg := types.OnlineMessage{IsOnline: false, AuthorAddress: c.SenderAddress}
-	data, err := json.Marshal(offlineMsg)
+	offlineMsg := &api.NatsOnline{IsOnline: false, AuthorAddress: c.SenderAddress}
+	data, err := proto.Marshal(offlineMsg)
 	if err != nil {
 		return err
 	}

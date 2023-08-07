@@ -1,4 +1,4 @@
-package clihandler
+package natscli
 
 import (
 	"bufio"
@@ -62,9 +62,9 @@ func (c *Connector) Close() error {
 	return c.Conn.Close()
 }
 
-type CliHandler func(*cli.Context, *logrus.Logger) error
+type natscli func(*cli.Context, *logrus.Logger) error
 
-func WrapCliHandler(handler CliHandler, logger *logrus.Logger) cli.ActionFunc {
+func Wrapnatscli(handler natscli, logger *logrus.Logger) cli.ActionFunc {
 	return func(ctx *cli.Context) error {
 		return handler(ctx, logger)
 	}
@@ -79,7 +79,7 @@ func CheckProfileDir(cCxt *cli.Context) (err error) {
 }
 
 func NewGenerateHandler(logger *logrus.Logger) cli.ActionFunc {
-	return WrapCliHandler(generateHandler, logger)
+	return Wrapnatscli(generateHandler, logger)
 }
 
 func generateHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
@@ -138,7 +138,7 @@ func generateHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 }
 
 func NewAddressHandler(logger *logrus.Logger) cli.ActionFunc {
-	return WrapCliHandler(addressHandler, logger)
+	return Wrapnatscli(addressHandler, logger)
 }
 
 func addressHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
@@ -147,9 +147,9 @@ func addressHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 	})
 
 	profilePath := cCtx.String("profile")
-	var senderProfile profile.SenderProfile
+	var senderProfile profile.Profile
 
-	if senderProfile, err = profile.ReadSenderProfile(profilePath); err != nil {
+	if senderProfile, err = profile.ReadProfile(profilePath); err != nil {
 		return err
 	}
 	ll.Debugf("Read sender profile %s\n", profilePath)
@@ -160,7 +160,7 @@ func addressHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 }
 
 func NewOnlineHandler(logger *logrus.Logger) cli.ActionFunc {
-	return WrapCliHandler(onlineHandler, logger)
+	return Wrapnatscli(onlineHandler, logger)
 }
 
 func onlineHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
@@ -184,8 +184,8 @@ func onlineHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 		}
 		profilePath = filepath.Join(homeDir, ".natschat")
 	}
-	var senderProfile profile.SenderProfile
-	if senderProfile, err = profile.ReadSenderProfile(profilePath); err != nil {
+	var senderProfile profile.Profile
+	if senderProfile, err = profile.ReadProfile(profilePath); err != nil {
 		return err
 	}
 
@@ -201,7 +201,7 @@ func onlineHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 }
 
 func NewOfflineHandler(logger *logrus.Logger) cli.ActionFunc {
-	return WrapCliHandler(offlineHandler, logger)
+	return Wrapnatscli(offlineHandler, logger)
 }
 
 func offlineHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
@@ -223,7 +223,7 @@ func offlineHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 }
 
 func NewCreateChatHandler(logger *logrus.Logger) cli.ActionFunc {
-	return WrapCliHandler(createChatHandler, logger)
+	return Wrapnatscli(createChatHandler, logger)
 }
 
 func createChatHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
@@ -247,7 +247,7 @@ func createChatHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 }
 
 func NewRmChatHandler(logger *logrus.Logger) cli.ActionFunc {
-	return WrapCliHandler(rmChatHandler, logger)
+	return Wrapnatscli(rmChatHandler, logger)
 }
 
 func rmChatHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
@@ -271,7 +271,7 @@ func rmChatHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 }
 
 func NewOpenChatHandler(logger *logrus.Logger) cli.ActionFunc {
-	return WrapCliHandler(openChatHandler, logger)
+	return Wrapnatscli(openChatHandler, logger)
 }
 
 func openChatHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {

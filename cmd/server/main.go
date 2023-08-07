@@ -9,7 +9,7 @@ import (
 
 	api "github.com/aaletov/nats-chat/api/generated"
 	"github.com/aaletov/nats-chat/pkg/logger"
-	"github.com/aaletov/nats-chat/pkg/server"
+	"github.com/aaletov/nats-chat/pkg/natsdaemon"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -47,7 +47,7 @@ func main() {
 		logger.Fatalf("Got signal: %s", <-c)
 	}()
 
-	daemonServer := server.NewDaemon(logger)
+	daemonServer := natsdaemon.NewDaemon(logger)
 	logrus.RegisterExitHandler(func() {
 		lis.Close()
 		daemonServer.Shutdown()

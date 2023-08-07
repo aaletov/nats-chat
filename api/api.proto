@@ -28,3 +28,14 @@ message ChatMessage {
   google.protobuf.Timestamp time = 1;
   string text = 2;
 }
+
+// Types below are used internally in daemon-to-daemon communication
+
+message NatsOnline {
+  string author_address = 1;
+  bool is_online = 2;
+}
+
+message NatsPing {
+  string author_address = 1;
+}

@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/aaletov/nats-chat/pkg/clihandler"
+	"github.com/aaletov/nats-chat/pkg/natscli"
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -53,7 +53,7 @@ func main() {
 						Value:    natsDir,
 					},
 				},
-				Action: clihandler.NewGenerateHandler(logger),
+				Action: natscli.NewGenerateHandler(logger),
 			},
 			{
 				Name:  "address",
@@ -66,8 +66,8 @@ func main() {
 						Value:    natsDir,
 					},
 				},
-				Before: clihandler.CheckProfileDir,
-				Action: clihandler.NewAddressHandler(logger),
+				Before: natscli.CheckProfileDir,
+				Action: natscli.NewAddressHandler(logger),
 			},
 			{
 				Name:  "online",
@@ -85,13 +85,13 @@ func main() {
 						Required: true,
 					},
 				},
-				Before: clihandler.CheckProfileDir,
-				Action: clihandler.NewOnlineHandler(logger),
+				Before: natscli.CheckProfileDir,
+				Action: natscli.NewOnlineHandler(logger),
 			},
 			{
 				Name:   "offline",
 				Usage:  "Go offline",
-				Action: clihandler.NewOfflineHandler(logger),
+				Action: natscli.NewOfflineHandler(logger),
 			},
 			{
 				Name:  "createchat",
@@ -103,7 +103,7 @@ func main() {
 						Required: true,
 					},
 				},
-				Action: clihandler.NewCreateChatHandler(logger),
+				Action: natscli.NewCreateChatHandler(logger),
 			},
 			{
 				Name:  "rmchat",
@@ -115,12 +115,12 @@ func main() {
 						Required: true,
 					},
 				},
-				Action: clihandler.NewRmChatHandler(logger),
+				Action: natscli.NewRmChatHandler(logger),
 			},
 			{
 				Name:   "openchat",
 				Usage:  "Open chat",
-				Action: clihandler.NewOpenChatHandler(logger),
+				Action: natscli.NewOpenChatHandler(logger),
 			},
 		},
 	}
