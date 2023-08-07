@@ -193,6 +193,7 @@ func (c *ChatConnection) Send(srv api.Daemon_SendServer) error {
 		)
 		for {
 			if cmsg, err = srv.Recv(); err != nil {
+				ll.Debugf("Got error stom cli, exiting: %s", err)
 				return fmt.Errorf("Unable to get message: %s", err)
 			}
 			ll.Debugf("Got message from cli: %s", cmsg)
