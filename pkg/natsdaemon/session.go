@@ -3,13 +3,13 @@ package natsdaemon
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	api "github.com/aaletov/nats-chat/api/generated"
 	"github.com/hashicorp/go-multierror"
 	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -173,43 +173,43 @@ func (c *ChatConnection) Send(srv api.Daemon_SendServer) error {
 	})
 	recepientChat := fmt.Sprintf("chat.%s", c.RecepientAddress)
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		var err error
+	g := errgroup.Group{}
+	g.Go(func() (err error) {
 		for cmsg := range c.incomingChan {
 			ll.Debugf("Got message from nats: %s", cmsg)
 			if err = srv.Send(cmsg); err != nil {
-				ll.Fatalf("Unable to send message: %s\n", err)
+				return fmt.Errorf("Unable to send message: %s\n", err)
 			}
 			ll.Debugf("Sent message to cli: %s", cmsg)
 		}
 		ll.Debugln("Exiting server send loop")
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+		return nil
+	})
+
+	g.Go(func() (err error) {
 		var (
-			err  error
 			cmsg *api.ChatMessage
 			data []byte
 		)
 		for {
 			if cmsg, err = srv.Recv(); err != nil {
-				ll.Fatalf("Unable to get message: %s", err)
+				return fmt.Errorf("Unable to get message: %s", err)
 			}
 			ll.Debugf("Got message from cli: %s", cmsg)
-			// Use generated marshallers
+
 			if data, err = proto.Marshal(cmsg); err != nil {
-				ll.Fatalf("unable to marshal message: %s\n", err)
+				return fmt.Errorf("unable to marshal message: %s\n", err)
 			}
 			c.nc.Publish(recepientChat, data)
 			ll.Debugf("Published message: %s", cmsg)
 		}
 		ll.Debugln("Exiting server recv loop")
-	}()
-	wg.Wait()
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
 	return nil
 }
 

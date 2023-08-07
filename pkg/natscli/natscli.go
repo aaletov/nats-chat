@@ -11,23 +11,20 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sync"
 
 	api "github.com/aaletov/nats-chat/api/generated"
 	"github.com/aaletov/nats-chat/pkg/fs"
 	"github.com/aaletov/nats-chat/pkg/profile"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-// type DaemonConnection struct {
-// 	Client api.DaemonClient
-// 	Conn   *grpc.ClientConn
-// }
 
 func ConnectDaemon(cCtx *cli.Context) (*grpc.ClientConn, error) {
 	var (
@@ -248,40 +245,46 @@ func openChatHandler(cCtx *cli.Context, ll *logrus.Entry, daemonClient api.Daemo
 		return fmt.Errorf("failed send: %s", err)
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		var (
-			err  error
-			cmsg *api.ChatMessage
-		)
+	g := errgroup.Group{}
+	g.Go(func() (err error) {
+		var cmsg *api.ChatMessage
 		for {
-			if cmsg, err = daemonSendClient.Recv(); err != nil {
-				ll.Fatalf("Got error from stream: %s", err)
+			cmsg, err = daemonSendClient.Recv()
+			if err != nil {
+				if e, ok := status.FromError(err); ok && (e.Code() == codes.Canceled) {
+					ll.Debugf("Exiting cli recv loop: %s", err)
+					return nil
+				} else {
+					return fmt.Errorf("Unexpected error from stream: %s", err)
+				}
 			}
-			fmt.Printf("%s %s\n", cmsg.Time, cmsg.Text)
-		}
-		ll.Debugln("Exiting cli recv loop")
-	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+			fmt.Printf("%s %s\n", cmsg.Time.AsTime(), cmsg.Text)
+		}
+	})
+
+	g.Go(func() (err error) {
+		defer daemonSendClient.CloseSend()
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			cmsg := &api.ChatMessage{
 				Text: scanner.Text(),
 				Time: timestamppb.Now(),
 			}
-			daemonSendClient.Send(cmsg)
+			if err = daemonSendClient.Send(cmsg); err != nil {
+				return fmt.Errorf("Unexpected error sending message: %s", err)
+			}
 			ll.Debugf("Sent message: %s", cmsg)
 		}
 		if scanner.Err() != nil {
-			ll.Fatalf("Got error from scanner: %s", err)
+			return fmt.Errorf("Got error from scanner: %s", err)
 		}
-		ll.Debugln("Exiting cli send loop")
-	}()
-	wg.Wait()
+		ll.Debugln("Got EOF, exiting cli send loop")
+		return nil
+	})
+
+	if err = g.Wait(); err != nil {
+		return err
+	}
 	return nil
 }
