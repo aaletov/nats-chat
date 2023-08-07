@@ -24,19 +24,19 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type Connector struct {
-	Client api.DaemonClient
-	Conn   *grpc.ClientConn
-}
+// type DaemonConnection struct {
+// 	Client api.DaemonClient
+// 	Conn   *grpc.ClientConn
+// }
 
-func NewConnector(cCtx *cli.Context) (Connector, error) {
+func ConnectDaemon(cCtx *cli.Context) (*grpc.ClientConn, error) {
 	var (
 		homeDir string
 		err     error
 	)
 
 	if homeDir, err = os.UserHomeDir(); err != nil {
-		return Connector{}, fmt.Errorf("Unable to get user's home directory: %s", err)
+		return nil, fmt.Errorf("Unable to get user's home directory: %s", err)
 	}
 	PROTOCOL := "unix"
 	SOCKET := filepath.Join(homeDir, ".natschat/socket/natschat.sock")
@@ -47,24 +47,31 @@ func NewConnector(cCtx *cli.Context) (Connector, error) {
 
 	conn, err := grpc.Dial(SOCKET, dialOption, secOption)
 	if err != nil {
-		return Connector{}, err
-	}
-	daemonClient := api.NewDaemonClient(conn)
-
-	return Connector{Client: daemonClient, Conn: conn}, nil
-}
-
-func (c *Connector) Close() error {
-	if c.Conn == nil {
-		return nil
+		return nil, err
 	}
 
-	return c.Conn.Close()
+	return conn, nil
 }
 
-type natscli func(*cli.Context, *logrus.Logger) error
+type CliDaemonHandler func(*cli.Context, *logrus.Entry, api.DaemonClient) error
 
-func Wrapnatscli(handler natscli, logger *logrus.Logger) cli.ActionFunc {
+func WrapCliDaemonHandler(handler CliDaemonHandler) CliHandler {
+	return func(cCtx *cli.Context, ll *logrus.Entry) error {
+		var err error
+		var daemonConnection *grpc.ClientConn
+		if daemonConnection, err = ConnectDaemon(cCtx); err != nil {
+			return fmt.Errorf("failed to initialize daemonConnection: %s", err)
+		}
+		defer daemonConnection.Close()
+		ll.Println("Connected to daemon")
+		daemonClient := api.NewDaemonClient(daemonConnection)
+		return handler(cCtx, ll, daemonClient)
+	}
+}
+
+type CliHandler func(*cli.Context, *logrus.Entry) error
+
+func WrapCliHandler(handler CliHandler, logger *logrus.Entry) cli.ActionFunc {
 	return func(ctx *cli.Context) error {
 		return handler(ctx, logger)
 	}
@@ -79,14 +86,13 @@ func CheckProfileDir(cCxt *cli.Context) (err error) {
 }
 
 func NewGenerateHandler(logger *logrus.Logger) cli.ActionFunc {
-	return Wrapnatscli(generateHandler, logger)
-}
-
-func generateHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 	ll := logger.WithFields(logrus.Fields{
 		"component": "GenerateHandler",
 	})
+	return WrapCliHandler(generateHandler, ll)
+}
 
+func generateHandler(cCtx *cli.Context, ll *logrus.Entry) (err error) {
 	profilePath := cCtx.String("out")
 	if _, err := os.Stat(profilePath); (err != nil) && (os.IsNotExist(err)) {
 		if err := os.Mkdir(profilePath, 0700); err != nil {
@@ -138,17 +144,15 @@ func generateHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 }
 
 func NewAddressHandler(logger *logrus.Logger) cli.ActionFunc {
-	return Wrapnatscli(addressHandler, logger)
-}
-
-func addressHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 	ll := logger.WithFields(logrus.Fields{
 		"component": "AddressHandler",
 	})
+	return WrapCliHandler(addressHandler, ll)
+}
 
+func addressHandler(cCtx *cli.Context, ll *logrus.Entry) (err error) {
 	profilePath := cCtx.String("profile")
 	var senderProfile profile.Profile
-
 	if senderProfile, err = profile.ReadProfile(profilePath); err != nil {
 		return err
 	}
@@ -160,36 +164,21 @@ func addressHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 }
 
 func NewOnlineHandler(logger *logrus.Logger) cli.ActionFunc {
-	return Wrapnatscli(onlineHandler, logger)
-}
-
-func onlineHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 	ll := logger.WithFields(logrus.Fields{
 		"component": "OnlineHandler",
 	})
+	return WrapCliHandler(WrapCliDaemonHandler(onlineHandler), ll)
+}
 
-	var connector Connector
-	if connector, err = NewConnector(cCtx); err != nil {
-		return fmt.Errorf("failed to initialize connector: %s", err)
-	}
-	defer connector.Close()
-	ll.Println("Initialized connector")
-
-	natsUrl := cCtx.String("nats-url")
+func onlineHandler(cCtx *cli.Context, ll *logrus.Entry, daemonClient api.DaemonClient) (err error) {
 	profilePath := cCtx.String("profile")
-	if !cCtx.IsSet("profile") {
-		var homeDir string
-		if homeDir, err = os.UserHomeDir(); err != nil {
-			return err
-		}
-		profilePath = filepath.Join(homeDir, ".natschat")
-	}
 	var senderProfile profile.Profile
 	if senderProfile, err = profile.ReadProfile(profilePath); err != nil {
 		return err
 	}
 
-	_, err = connector.Client.Online(cCtx.Context, &api.OnlineRequest{
+	natsUrl := cCtx.String("nats-url")
+	_, err = daemonClient.Online(cCtx.Context, &api.OnlineRequest{
 		NatsUrl:       natsUrl,
 		SenderAddress: senderProfile.GetAddress(),
 	})
@@ -201,93 +190,61 @@ func onlineHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 }
 
 func NewOfflineHandler(logger *logrus.Logger) cli.ActionFunc {
-	return Wrapnatscli(offlineHandler, logger)
-}
-
-func offlineHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 	ll := logger.WithFields(logrus.Fields{
 		"component": "OfflineHandler",
 	})
+	return WrapCliHandler(WrapCliDaemonHandler(offlineHandler), ll)
+}
 
-	var connector Connector
-	if connector, err = NewConnector(cCtx); err != nil {
-		return fmt.Errorf("failed to initialize connector: %s", err)
-	}
-	defer connector.Close()
-	ll.Println("Initialized connector")
-
-	if _, err = connector.Client.Offline(context.Background(), &emptypb.Empty{}); err != nil {
+func offlineHandler(cCtx *cli.Context, ll *logrus.Entry, daemonClient api.DaemonClient) (err error) {
+	if _, err = daemonClient.Offline(context.Background(), &emptypb.Empty{}); err != nil {
 		return fmt.Errorf("error going offline: %s", err)
 	}
 	return nil
 }
 
 func NewCreateChatHandler(logger *logrus.Logger) cli.ActionFunc {
-	return Wrapnatscli(createChatHandler, logger)
-}
-
-func createChatHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 	ll := logger.WithFields(logrus.Fields{
 		"component": "ChatHandler",
 	})
+	return WrapCliHandler(WrapCliDaemonHandler(createChatHandler), ll)
+}
 
-	var connector Connector
-	if connector, err = NewConnector(cCtx); err != nil {
-		return fmt.Errorf("failed to initialize connector: %s", err)
-	}
-	defer connector.Close()
-	ll.Println("Initialized connector")
-
+func createChatHandler(cCtx *cli.Context, ll *logrus.Entry, daemonClient api.DaemonClient) (err error) {
 	recepientAddress := cCtx.String("recepient")
 
-	_, err = connector.Client.CreateChat(cCtx.Context, &api.ChatRequest{
+	_, err = daemonClient.CreateChat(cCtx.Context, &api.ChatRequest{
 		RecepientAddress: recepientAddress,
 	})
 	return err
 }
 
 func NewRmChatHandler(logger *logrus.Logger) cli.ActionFunc {
-	return Wrapnatscli(rmChatHandler, logger)
-}
-
-func rmChatHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 	ll := logger.WithFields(logrus.Fields{
 		"component": "ChatHandler",
 	})
+	return WrapCliHandler(WrapCliDaemonHandler(rmChatHandler), ll)
+}
 
-	var connector Connector
-	if connector, err = NewConnector(cCtx); err != nil {
-		return fmt.Errorf("failed to initialize connector: %s", err)
-	}
-	defer connector.Close()
-	ll.Println("Initialized connector")
-
+func rmChatHandler(cCtx *cli.Context, ll *logrus.Entry, daemonClient api.DaemonClient) (err error) {
 	recepientAddress := cCtx.String("recepient")
 
-	_, err = connector.Client.DeleteChat(cCtx.Context, &api.ChatRequest{
+	_, err = daemonClient.DeleteChat(cCtx.Context, &api.ChatRequest{
 		RecepientAddress: recepientAddress,
 	})
 	return err
 }
 
 func NewOpenChatHandler(logger *logrus.Logger) cli.ActionFunc {
-	return Wrapnatscli(openChatHandler, logger)
-}
-
-func openChatHandler(cCtx *cli.Context, logger *logrus.Logger) (err error) {
 	ll := logger.WithFields(logrus.Fields{
 		"component": "ChatHandler",
 	})
+	return WrapCliHandler(WrapCliDaemonHandler(openChatHandler), ll)
+}
 
-	var connector Connector
-	if connector, err = NewConnector(cCtx); err != nil {
-		return fmt.Errorf("failed to initialize connector: %s", err)
-	}
-	defer connector.Close()
-	ll.Println("Initialized connector")
-
+func openChatHandler(cCtx *cli.Context, ll *logrus.Entry, daemonClient api.DaemonClient) (err error) {
 	var daemonSendClient api.Daemon_SendClient
-	if daemonSendClient, err = connector.Client.Send(context.Background()); err != nil {
+	if daemonSendClient, err = daemonClient.Send(context.Background()); err != nil {
 		return fmt.Errorf("failed send: %s", err)
 	}
 
