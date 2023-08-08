@@ -67,7 +67,7 @@ func Online(logger *logrus.Logger, natsUrl string, senderAddress string) (*Sessi
 }
 
 func (s *Session) Close() (err error) {
-	s.nc.Close()
+	defer s.nc.Close()
 	return s.pingSub.Unsubscribe()
 }
 
