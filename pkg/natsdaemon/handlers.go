@@ -6,7 +6,6 @@ import (
 
 	api "github.com/aaletov/nats-chat/api/generated"
 	"github.com/hashicorp/go-multierror"
-	"github.com/nats-io/nats.go"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -16,12 +15,11 @@ type daemon struct {
 	session *Session
 	chat    *ChatConnection
 	logger  *logrus.Entry
-	nc      *nats.Conn
 }
 
 type ShutdownableDaemonServer interface {
 	api.DaemonServer
-	Shutdown()
+	Shutdown() error
 }
 
 func NewDaemon(logger *logrus.Logger) ShutdownableDaemonServer {
@@ -47,12 +45,23 @@ func (d *daemon) Online(ctx context.Context, req *api.OnlineRequest) (*emptypb.E
 	return &emptypb.Empty{}, nil
 }
 
-func (d *daemon) Offline(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func shutdownDaemon(d *daemon) error {
 	var err *multierror.Error
-	err = multierror.Append(err, d.chat.Close())
-	err = multierror.Append(d.session.Close())
 
-	return &emptypb.Empty{}, err.ErrorOrNil()
+	if d.chat != nil {
+		err = multierror.Append(err, d.chat.Close())
+		d.chat = nil
+	}
+	if d.session != nil {
+		err = multierror.Append(d.session.Close())
+		d.session = nil
+	}
+
+	return err.ErrorOrNil()
+}
+
+func (d *daemon) Offline(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, shutdownDaemon(d)
 }
 
 func (d *daemon) CreateChat(ctx context.Context, req *api.ChatRequest) (*emptypb.Empty, error) {
@@ -68,15 +77,20 @@ func (d *daemon) CreateChat(ctx context.Context, req *api.ChatRequest) (*emptypb
 }
 
 func (d *daemon) DeleteChat(ctx context.Context, req *api.ChatRequest) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, d.chat.Close()
+	ll := d.logger.WithFields(logrus.Fields{
+		"method": "DeleteChat",
+	})
+	if d.chat != nil {
+		return &emptypb.Empty{}, d.chat.Close()
+	}
+	ll.Debugf("Chat does not exist: %s", req.RecepientAddress)
+	return &emptypb.Empty{}, nil
 }
 
 func (d *daemon) Send(srv api.Daemon_SendServer) error {
 	return d.chat.Send(srv)
 }
 
-func (d *daemon) Shutdown() {
-	if d.nc != nil {
-		d.nc.Close()
-	}
+func (d *daemon) Shutdown() error {
+	return shutdownDaemon(d)
 }
