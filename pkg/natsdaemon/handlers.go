@@ -57,13 +57,12 @@ func (d *daemon) Online(ctx context.Context, req *api.OnlineRequest) (*emptypb.E
 }
 
 func (d *daemon) Offline(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	var err error
-	err = d.session.Close()
-	if d.chat != nil {
-		err = multierror.Append(err, d.chat.Close())
-	}
-	d.nc.Close()
-	return &emptypb.Empty{}, nil
+	defer d.nc.Close()
+	var err *multierror.Error
+	err = multierror.Append(err, d.chat.Close())
+	err = multierror.Append(d.session.Close())
+
+	return &emptypb.Empty{}, err.ErrorOrNil()
 }
 
 func (d *daemon) CreateChat(ctx context.Context, req *api.ChatRequest) (*emptypb.Empty, error) {
