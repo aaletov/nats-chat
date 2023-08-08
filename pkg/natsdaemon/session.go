@@ -237,9 +237,10 @@ func (c *ChatConnection) Close() (err error) {
 	if err != nil {
 		return err
 	}
+	var merr *multierror.Error
 	close(c.incomingChan)
-	err = multierror.Append(c.nc.Publish(recepientOnline, data))
-	err = multierror.Append(err, c.onlineSub.Unsubscribe())
-	err = multierror.Append(err, c.chatSub.Unsubscribe())
-	return err
+	merr = multierror.Append(c.nc.Publish(recepientOnline, data))
+	merr = multierror.Append(err, c.onlineSub.Unsubscribe())
+	merr = multierror.Append(merr, c.chatSub.Unsubscribe())
+	return merr.ErrorOrNil()
 }
