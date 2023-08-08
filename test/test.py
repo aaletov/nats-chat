@@ -37,6 +37,14 @@ class TestNatsChat(unittest.TestCase):
         subprocess.Popen(args, stdout=subprocess.DEVNULL,
                          stderr=subprocess.STDOUT).wait()
 
+        # Use --follow in separate thread?
+        args = (
+            "docker",
+            "compose",
+            "logs",
+        )
+        subprocess.Popen(args).wait()
+
         args = (
             "docker",
             "compose",
@@ -56,8 +64,7 @@ class TestNatsChat(unittest.TestCase):
         subprocess.Popen(args, stdout=subprocess.DEVNULL,
                          stderr=subprocess.STDOUT).wait()
 
-    # Impl test to check that double address return same string
-    def test_generate(self) -> None:
+    def test_one_message(self) -> None:
         logger = logging.getLogger("LOGGER")
         client = docker.from_env()
 
@@ -109,9 +116,9 @@ class TestNatsChat(unittest.TestCase):
                 s1.close()
                 s2.close()
 
-            code1, out1 = c1.exec_run("nats-chat-cli rmchat")
+            code1, out1 = c1.exec_run("nats-chat-cli rmchat --recepient {addr2}".format(addr2=addr2))
             self.assertTrue(code1 == 0)
-            code2, out2 = c2.exec_run("nats-chat-cli rmchat")
+            code2, out2 = c2.exec_run("nats-chat-cli rmchat --recepient {addr1}".format(addr1=addr1))
             self.assertTrue(code2 == 0)
 
             code1, out1 = c1.exec_run("nats-chat-cli offline")
@@ -121,6 +128,38 @@ class TestNatsChat(unittest.TestCase):
             
         finally:
             client.close()
+
+        def test_double_address(self) -> None:
+            logger = logging.getLogger("LOGGER")
+            client = docker.from_env()
+
+            try:
+                c1: dmc.Container
+                c1 = client.containers.get("nats-chat-cli-1-1")
+                c2: dmc.Container
+                c2 = client.containers.get("nats-chat-cli-2-1")
+                self.assertTrue(c1.exec_run("nats-chat-cli generate")[0] == 0)
+                self.assertTrue(c2.exec_run("nats-chat-cli generate")[0] == 0)
+
+                code1, out1 = c1.exec_run("nats-chat-cli address")
+                addr11 = out1.splitlines()[1].decode('utf-8')
+                self.assertTrue(code1 == 0)
+                code2, out2 = c2.exec_run("nats-chat-cli address")
+                addr21 = out2.splitlines()[1].decode('utf-8')
+                self.assertTrue(code2 == 0)
+
+                code1, out1 = c1.exec_run("nats-chat-cli address")
+                addr12 = out1.splitlines()[1].decode('utf-8')
+                self.assertTrue(code1 == 0)
+                code2, out2 = c2.exec_run("nats-chat-cli address")
+                addr22 = out2.splitlines()[1].decode('utf-8')
+                self.assertTrue(code2 == 0)
+
+                self.assertEqual(addr11 == addr12)
+                self.assertEqual(addr21 == addr22)
+                
+            finally:
+                client.close()
 
 
 # user_home = os.getenv("HOME")
