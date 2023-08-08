@@ -247,9 +247,9 @@ func (c *ChatConnection) Close() (err error) {
 		return err
 	}
 	var merr *multierror.Error
-	close(c.incomingChan)
 	merr = multierror.Append(c.nc.Publish(recepientOnline, data))
 	merr = multierror.Append(err, c.onlineSub.Unsubscribe())
 	merr = multierror.Append(merr, c.chatSub.Unsubscribe())
+	close(c.incomingChan)
 	return merr.ErrorOrNil()
 }
