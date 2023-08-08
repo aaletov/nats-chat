@@ -64,6 +64,7 @@ class TestNatsChat(unittest.TestCase):
         try:
             c1: dmc.Container
             c1 = client.containers.get("nats-chat-cli-1-1")
+            c2: dmc.Container
             c2 = client.containers.get("nats-chat-cli-2-1")
             self.assertTrue(c1.exec_run("nats-chat-cli generate")[0] == 0)
             self.assertTrue(c2.exec_run("nats-chat-cli generate")[0] == 0)
@@ -107,6 +108,17 @@ class TestNatsChat(unittest.TestCase):
             finally:
                 s1.close()
                 s2.close()
+
+            code1, out1 = c1.exec_run("nats-chat-cli rmchat")
+            self.assertTrue(code1 == 0)
+            code2, out2 = c2.exec_run("nats-chat-cli rmchat")
+            self.assertTrue(code2 == 0)
+
+            code1, out1 = c1.exec_run("nats-chat-cli offline")
+            self.assertTrue(code1 == 0)
+            code2, out2 = c2.exec_run("nats-chat-cli offline")
+            self.assertTrue(code2 == 0)
+            
         finally:
             client.close()
 
