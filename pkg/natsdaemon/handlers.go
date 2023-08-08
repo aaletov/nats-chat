@@ -81,7 +81,9 @@ func (d *daemon) DeleteChat(ctx context.Context, req *api.ChatRequest) (*emptypb
 		"method": "DeleteChat",
 	})
 	if d.chat != nil {
-		return &emptypb.Empty{}, d.chat.Close()
+		err := d.chat.Close()
+		d.chat = nil
+		return &emptypb.Empty{}, err
 	}
 	ll.Debugf("Chat does not exist: %s", req.RecepientAddress)
 	return &emptypb.Empty{}, nil
