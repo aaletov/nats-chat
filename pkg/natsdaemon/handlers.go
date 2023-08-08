@@ -3,7 +3,6 @@ package natsdaemon
 import (
 	"context"
 	"fmt"
-	"time"
 
 	api "github.com/aaletov/nats-chat/api/generated"
 	"github.com/hashicorp/go-multierror"
@@ -40,15 +39,7 @@ func (d *daemon) Online(ctx context.Context, req *api.OnlineRequest) (*emptypb.E
 	ll.Debugf("Processing request: %s", req)
 	var err error
 
-	options := []nats.Option{nats.Timeout(30 * time.Second)}
-	var nc *nats.Conn
-	if nc, err = nats.Connect(req.NatsUrl, options...); err != nil {
-		return nil, fmt.Errorf("error connecting to nats instance: %s", err)
-	}
-	d.nc = nc
-	ll.Println("Connected to the nats server")
-
-	if d.session, err = Online(d.logger.Logger, nc, req.SenderAddress); err != nil {
+	if d.session, err = Online(d.logger.Logger, req.NatsUrl, req.SenderAddress); err != nil {
 		return &emptypb.Empty{}, fmt.Errorf("failed to initialize session: %s", err)
 	}
 	ll.Debugf("Initialized new session: %s", req.NatsUrl)
@@ -57,7 +48,6 @@ func (d *daemon) Online(ctx context.Context, req *api.OnlineRequest) (*emptypb.E
 }
 
 func (d *daemon) Offline(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	defer d.nc.Close()
 	var err *multierror.Error
 	err = multierror.Append(err, d.chat.Close())
 	err = multierror.Append(d.session.Close())

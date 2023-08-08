@@ -21,12 +21,21 @@ type Session struct {
 	pingSub       *nats.Subscription
 }
 
-func Online(logger *logrus.Logger, nc *nats.Conn, senderAddress string) (*Session, error) {
+func Online(logger *logrus.Logger, natsUrl string, senderAddress string) (*Session, error) {
 	ll := logger.WithFields(logrus.Fields{
 		"method": "Online",
 	})
+	options := []nats.Option{nats.Timeout(30 * time.Second)}
+	var (
+		err error
+		nc  *nats.Conn
+	)
+	if nc, err = nats.Connect(natsUrl, options...); err != nil {
+		return nil, fmt.Errorf("error connecting to nats instance: %s", err)
+	}
+	ll.Println("Connected to the nats server")
+
 	senderPing := fmt.Sprintf("ping.%s", senderAddress)
-	var err error
 	sub, err := nc.Subscribe(senderPing, func(msg *nats.Msg) {
 		var (
 			err        error
