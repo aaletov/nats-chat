@@ -39,9 +39,8 @@ docker-build-daemon: docker-build-builder
 docker-build-all: docker-build-cli docker-build-daemon
 
 .PHONY: test
-test:
-	docker build . -t nats-chat-test:$(TAG)
-	docker run --rm nats-chat-test:$(TAG)
+test: docker-build-all
+	python3 ./test/test.py
 
 clean:
 	rm -rf build/*
