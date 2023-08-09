@@ -1,0 +1,4 @@
+services:
+  cli-1:
+    image: nats-chat-cli:latest
+  

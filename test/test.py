@@ -12,13 +12,17 @@ import socket
 
 home = os.getenv("NATS_CHAT_HOME")
 
-class TestNatsChat(unittest.TestCase):
+class ComposeTestCase(unittest.TestCase):
+    @staticmethod
+    def getComposeFile() -> str:
+        raise RuntimeError()
+    
     def setUp(cls) -> None:
         args = (
             "docker",
             "compose",
             "--file",
-            os.path.join(home, "docker-compose.yml"),
+            os.path.join(home, cls.getComposeFile()),
             "up",
             "--wait",
         )
@@ -31,7 +35,7 @@ class TestNatsChat(unittest.TestCase):
             "docker",
             "compose",
             "--file",
-            os.path.join(home, "docker-compose.yml"),
+            os.path.join(home, cls.getComposeFile()),
             "stop",
         )
         subprocess.Popen(args, stdout=subprocess.DEVNULL,
@@ -41,6 +45,8 @@ class TestNatsChat(unittest.TestCase):
         args = (
             "docker",
             "compose",
+            "--file",
+            os.path.join(home, cls.getComposeFile()),
             "logs",
         )
         subprocess.Popen(args).wait()
@@ -48,6 +54,8 @@ class TestNatsChat(unittest.TestCase):
         args = (
             "docker",
             "compose",
+            "--file",
+            os.path.join(home, cls.getComposeFile()),
             "rm",
             "-f",
         )
@@ -63,6 +71,51 @@ class TestNatsChat(unittest.TestCase):
         )
         subprocess.Popen(args, stdout=subprocess.DEVNULL,
                          stderr=subprocess.STDOUT).wait()
+        
+class CliTestCase(ComposeTestCase):
+    @staticmethod
+    def getComposeFile() -> str:
+        return "docker-compose.cli.yml"
+
+    def test_double_address(self) -> None:
+        logger = logging.getLogger("LOGGER")
+        client = docker.from_env()
+
+        try:
+            c: dmc.Container
+            c = client.containers.get("nats-chat-cli-1-1")
+            self.assertTrue(c.exec_run("nats-chat-cli generate")[0] == 0)
+
+            code1, out1 = c.exec_run("nats-chat-cli address")
+            addr1 = out1.splitlines()[1].decode('utf-8')
+            self.assertTrue(code1 == 0)
+
+            code1, out1 = c.exec_run("nats-chat-cli address")
+            addr2 = out1.splitlines()[1].decode('utf-8')
+            self.assertTrue(code1 == 0)
+            self.assertEqual(addr1, addr2)
+            
+        finally:
+            client.close()
+
+    def test_default_generate(self) -> None:
+        logger = logging.getLogger("LOGGER")
+        client = docker.from_env()
+
+        try:
+            c: dmc.Container
+            c = client.containers.get("nats-chat-cli-1-1")
+            self.assertEqual(c.exec_run("nats-chat-cli generate")[0], 0)
+            self.assertEqual(c.exec_run("stat /root/.natschat/private.pem")[0], 0)
+            self.assertEqual(c.exec_run("stat /root/.natschat/public.pem")[0], 0)
+            
+        finally:
+            client.close()
+
+class TestNatsChat(ComposeTestCase):
+    @staticmethod
+    def getComposeFile() -> str:
+        return "docker-compose.full.yml"
 
     def test_one_message(self) -> None:
         logger = logging.getLogger("LOGGER")
@@ -128,39 +181,6 @@ class TestNatsChat(unittest.TestCase):
             
         finally:
             client.close()
-
-        def test_double_address(self) -> None:
-            logger = logging.getLogger("LOGGER")
-            client = docker.from_env()
-
-            try:
-                c1: dmc.Container
-                c1 = client.containers.get("nats-chat-cli-1-1")
-                c2: dmc.Container
-                c2 = client.containers.get("nats-chat-cli-2-1")
-                self.assertTrue(c1.exec_run("nats-chat-cli generate")[0] == 0)
-                self.assertTrue(c2.exec_run("nats-chat-cli generate")[0] == 0)
-
-                code1, out1 = c1.exec_run("nats-chat-cli address")
-                addr11 = out1.splitlines()[1].decode('utf-8')
-                self.assertTrue(code1 == 0)
-                code2, out2 = c2.exec_run("nats-chat-cli address")
-                addr21 = out2.splitlines()[1].decode('utf-8')
-                self.assertTrue(code2 == 0)
-
-                code1, out1 = c1.exec_run("nats-chat-cli address")
-                addr12 = out1.splitlines()[1].decode('utf-8')
-                self.assertTrue(code1 == 0)
-                code2, out2 = c2.exec_run("nats-chat-cli address")
-                addr22 = out2.splitlines()[1].decode('utf-8')
-                self.assertTrue(code2 == 0)
-
-                self.assertEqual(addr11 == addr12)
-                self.assertEqual(addr21 == addr22)
-                
-            finally:
-                client.close()
-
 
 # user_home = os.getenv("HOME")
 # user_nats_profile = os.path.join(user_home, ".natschat")
