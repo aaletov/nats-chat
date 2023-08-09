@@ -33,8 +33,15 @@ func main() {
 		}
 	}
 
+	socketDir := filepath.Join(natsDir, "socket")
+	if _, err := os.Stat(socketDir); (err != nil) && (os.IsNotExist(err)) {
+		if err := os.Mkdir(socketDir, 0700); err != nil {
+			logger.Fatalf("error when create socket directory: %s", err)
+		}
+	}
+
 	PROTOCOL := "unix"
-	SOCKET := filepath.Join(natsDir, "socket/natschat.sock")
+	SOCKET := filepath.Join(socketDir, "natschat.sock")
 
 	lis, err := net.Listen(PROTOCOL, SOCKET)
 	if err != nil {
