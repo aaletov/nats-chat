@@ -76,6 +76,19 @@ class CliTestCase(ComposeTestCase):
     @staticmethod
     def getComposeFile() -> str:
         return "docker-compose.cli.yml"
+    
+    def test_double_generate_errors(self) -> None:
+        logger = logging.getLogger("LOGGER")
+        client = docker.from_env()
+
+        try:
+            c: dmc.Container
+            c = client.containers.get("nats-chat-cli-1-1")
+            self.assertEqual(c.exec_run("nats-chat-cli generate")[0], 0)
+            self.assertEqual(c.exec_run("nats-chat-cli generate")[0], 1)
+            
+        finally:
+            client.close()
 
     def test_double_address(self) -> None:
         logger = logging.getLogger("LOGGER")
@@ -84,15 +97,15 @@ class CliTestCase(ComposeTestCase):
         try:
             c: dmc.Container
             c = client.containers.get("nats-chat-cli-1-1")
-            self.assertTrue(c.exec_run("nats-chat-cli generate")[0] == 0)
+            self.assertEqual(c.exec_run("nats-chat-cli generate")[0], 0)
 
             code1, out1 = c.exec_run("nats-chat-cli address")
             addr1 = out1.splitlines()[1].decode('utf-8')
-            self.assertTrue(code1 == 0)
+            self.assertEqual(code1, 0)
 
             code1, out1 = c.exec_run("nats-chat-cli address")
             addr2 = out1.splitlines()[1].decode('utf-8')
-            self.assertTrue(code1 == 0)
+            self.assertEqual(code1, 0)
             self.assertEqual(addr1, addr2)
             
         finally:
@@ -112,6 +125,20 @@ class CliTestCase(ComposeTestCase):
         finally:
             client.close()
 
+    def test_custom_generate(self) -> None:
+        logger = logging.getLogger("LOGGER")
+        client = docker.from_env()
+
+        try:
+            c: dmc.Container
+            c = client.containers.get("nats-chat-cli-1-1")
+            self.assertEqual(c.exec_run("nats-chat-cli generate --out /root/temp")[0], 0)
+            self.assertEqual(c.exec_run("stat /root/temp/private.pem")[0], 0)
+            self.assertEqual(c.exec_run("stat /root/temp/public.pem")[0], 0)
+            
+        finally:
+            client.close()
+
 class TestNatsChat(ComposeTestCase):
     @staticmethod
     def getComposeFile() -> str:
@@ -126,25 +153,25 @@ class TestNatsChat(ComposeTestCase):
             c1 = client.containers.get("nats-chat-cli-1-1")
             c2: dmc.Container
             c2 = client.containers.get("nats-chat-cli-2-1")
-            self.assertTrue(c1.exec_run("nats-chat-cli generate")[0] == 0)
-            self.assertTrue(c2.exec_run("nats-chat-cli generate")[0] == 0)
+            self.assertEqual(c1.exec_run("nats-chat-cli generate")[0], 0)
+            self.assertEqual(c2.exec_run("nats-chat-cli generate")[0], 0)
 
             code1, out1 = c1.exec_run("nats-chat-cli address")
             addr1 = out1.splitlines()[1].decode('utf-8')
-            self.assertTrue(code1 == 0)
+            self.assertEqual(code1, 0)
             code2, out2 = c2.exec_run("nats-chat-cli address")
             addr2 = out2.splitlines()[1].decode('utf-8')
-            self.assertTrue(code2 == 0)
+            self.assertEqual(code2, 0)
 
             code1, out1 = c1.exec_run("nats-chat-cli online --nats-url \"nats://nats:4444\"")
-            self.assertTrue(code1 == 0)
+            self.assertEqual(code1, 0)
             code2, out2 = c2.exec_run("nats-chat-cli online --nats-url \"nats://nats:4444\"")
-            self.assertTrue(code2 == 0)
+            self.assertEqual(code2, 0)
 
             code1, out1 = c1.exec_run("nats-chat-cli createchat --recepient {addr2}".format(addr2=addr2))
-            self.assertTrue(code1 == 0)
+            self.assertEqual(code1, 0)
             code2, out2 = c2.exec_run("nats-chat-cli createchat --recepient {addr1}".format(addr1=addr1))
-            self.assertTrue(code2 == 0)
+            self.assertEqual(code2, 0)
 
             s1: socket.SocketIO            
             code1, s1 = c1.exec_run("nats-chat-cli openchat", socket=True, stdin=True)
@@ -170,14 +197,14 @@ class TestNatsChat(ComposeTestCase):
                 s2.close()
 
             code1, out1 = c1.exec_run("nats-chat-cli rmchat --recepient {addr2}".format(addr2=addr2))
-            self.assertTrue(code1 == 0)
+            self.assertEqual(code1, 0)
             code2, out2 = c2.exec_run("nats-chat-cli rmchat --recepient {addr1}".format(addr1=addr1))
-            self.assertTrue(code2 == 0)
+            self.assertEqual(code2, 0)
 
             code1, out1 = c1.exec_run("nats-chat-cli offline")
-            self.assertTrue(code1 == 0)
+            self.assertEqual(code1, 0)
             code2, out2 = c2.exec_run("nats-chat-cli offline")
-            self.assertTrue(code2 == 0)
+            self.assertEqual(code2, 0)
             
         finally:
             client.close()
