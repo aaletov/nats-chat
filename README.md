@@ -27,5 +27,5 @@ nats-chat-cli address
 # <sender_address>
 nats-chat-cli online --nats-url "nats://0.0.0.0:4444"
 nats-chat-cli createchat --recepient <recepient_address> 
-nats-chat-cli openchat --recepient <recepient_address> 
+nats-chat-cli openchat 
 ```
