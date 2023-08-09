@@ -1,0 +1,8 @@
+FROM nats-chat-builder:latest as builder
+COPY . ./nats-chat
+WORKDIR /opt/nats-chat
+RUN git checkout HEAD
+RUN make build-daemon
+FROM alpine:3.18
+COPY --from=builder /opt/nats-chat/build/nats-chat-daemon .
+CMD ["./nats-chat-daemon"]

@@ -1,0 +1,28 @@
+services:
+  nats:
+    image: nats:alpine3.18
+    ports:
+      - "4444:4444"
+    command: "-p 4444 -D --trace"
+  cli-1:
+    image: nats-chat-cli:latest
+    volumes:
+      - "daemon-sock-1:/root/.natschat/socket"
+  daemon-1:
+    image: nats-chat-daemon:latest
+    volumes:
+      - "daemon-sock-1:/root/.natschat/socket"
+  cli-2:
+    image: nats-chat-cli:latest
+    volumes:
+      - "daemon-sock-2:/root/.natschat/socket"
+  daemon-2:
+    image: nats-chat-daemon:latest
+    volumes:
+      - "daemon-sock-2:/root/.natschat/socket"
+
+volumes:
+  daemon-sock-1:
+  daemon-sock-2:
+
+  
