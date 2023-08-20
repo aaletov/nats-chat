@@ -13,7 +13,7 @@ import (
 type daemon struct {
 	api.UnimplementedDaemonServer
 	session *Session
-	chat    *ChatConnection
+	chat    *Chat
 	logger  *logrus.Entry
 }
 

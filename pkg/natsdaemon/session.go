@@ -19,6 +19,7 @@ type Session struct {
 	nc            *nats.Conn
 	senderAddress string
 	pingSub       *nats.Subscription
+	chat          *Chat
 }
 
 func Online(logger *logrus.Logger, natsUrl string, senderAddress string) (*Session, error) {
@@ -86,7 +87,7 @@ func NewIncomingMsgHandler(logger *logrus.Logger, incomingChan chan *api.ChatMes
 	}
 }
 
-func (s *Session) Dial(recepient string) (*ChatConnection, error) {
+func (s *Session) Dial(recepient string) (*Chat, error) {
 	ll := s.logger.WithFields(logrus.Fields{
 		"method": "Dial",
 	})
@@ -147,9 +148,9 @@ func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 		return nil, fmt.Errorf("unable to dial %s: %s", recepient, err)
 	}
 
-	return &ChatConnection{
+	return &Chat{
 		logger: s.logger.Logger.WithFields(logrus.Fields{
-			"component": "ChatConnection",
+			"component": "Chat",
 		}),
 		SenderAddress:    s.senderAddress,
 		RecepientAddress: recepient,
@@ -160,7 +161,7 @@ func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 	}, nil
 }
 
-type ChatConnection struct {
+type Chat struct {
 	logger           *logrus.Entry
 	SenderAddress    string
 	RecepientAddress string
@@ -170,7 +171,7 @@ type ChatConnection struct {
 	nc               *nats.Conn
 }
 
-func (c *ChatConnection) Send(srv api.Daemon_SendServer) error {
+func (c *Chat) Send(srv api.Daemon_SendServer) error {
 	ll := c.logger.WithFields(logrus.Fields{
 		"method": "Send",
 	})
@@ -228,11 +229,11 @@ func (c *ChatConnection) Send(srv api.Daemon_SendServer) error {
 	return nil
 }
 
-func (c *ChatConnection) Close() (err error) {
+func (c *Chat) Close() (err error) {
 	ll := c.logger.WithFields(logrus.Fields{
 		"method": "Close",
 	})
-	ll.Printf("Closing ChatConnection %s\n", c.RecepientAddress)
+	ll.Printf("Closing Chat %s\n", c.RecepientAddress)
 	recepientOnline := fmt.Sprintf("online.%s", c.RecepientAddress)
 	offlineMsg := &api.NatsOnline{IsOnline: false, AuthorAddress: c.SenderAddress}
 	data, err := proto.Marshal(offlineMsg)
