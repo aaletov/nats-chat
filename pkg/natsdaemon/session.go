@@ -86,13 +86,6 @@ func NewIncomingMsgHandler(logger *logrus.Logger, incomingChan chan *api.ChatMes
 	}
 }
 
-// func ProccessOutcomingChan(nc *nats.Conn, recepient string, outcomingChan chan api.ChatMessage) {
-// 	recepientChat := fmt.Sprintf("chat.%s", c.RecepientAddress)
-// 	for cmsg := <- outcomingChan {
-// 		nc.Publish(recepient, cmsg)
-// 	}
-// }
-
 func (s *Session) Dial(recepient string) (*ChatConnection, error) {
 	ll := s.logger.WithFields(logrus.Fields{
 		"method": "Dial",
