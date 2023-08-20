@@ -68,6 +68,9 @@ func Online(logger *logrus.Logger, natsUrl string, senderAddress string) (*Sessi
 }
 
 func (s *Session) Close() (err error) {
+	if s.chat != nil {
+		s.chat.close()
+	}
 	defer s.nc.Close()
 	return s.pingSub.Unsubscribe()
 }
@@ -148,7 +151,7 @@ func (s *Session) Dial(recepient string) (*Chat, error) {
 		return nil, fmt.Errorf("unable to dial %s: %s", recepient, err)
 	}
 
-	return &Chat{
+	chat := &Chat{
 		logger: s.logger.Logger.WithFields(logrus.Fields{
 			"component": "Chat",
 		}),
@@ -158,7 +161,18 @@ func (s *Session) Dial(recepient string) (*Chat, error) {
 		onlineSub:        onlineSub,
 		chatSub:          chatSub,
 		nc:               s.nc,
-	}, nil
+	}
+
+	s.chat = chat
+	return chat, nil
+}
+
+func (s *Session) CloseChat() error {
+	if err := s.chat.close(); err != nil {
+		return err
+	}
+	s.chat = nil
+	return nil
 }
 
 type Chat struct {
@@ -229,7 +243,7 @@ func (c *Chat) Send(srv api.Daemon_SendServer) error {
 	return nil
 }
 
-func (c *Chat) Close() (err error) {
+func (c *Chat) close() (err error) {
 	ll := c.logger.WithFields(logrus.Fields{
 		"method": "Close",
 	})

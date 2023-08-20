@@ -48,10 +48,6 @@ func (d *daemon) Online(ctx context.Context, req *api.OnlineRequest) (*emptypb.E
 func shutdownDaemon(d *daemon) error {
 	var err *multierror.Error
 
-	if d.chat != nil {
-		err = multierror.Append(err, d.chat.Close())
-		d.chat = nil
-	}
 	if d.session != nil {
 		err = multierror.Append(d.session.Close())
 		d.session = nil
@@ -81,7 +77,7 @@ func (d *daemon) DeleteChat(ctx context.Context, req *api.ChatRequest) (*emptypb
 		"method": "DeleteChat",
 	})
 	if d.chat != nil {
-		err := d.chat.Close()
+		err := d.session.CloseChat()
 		d.chat = nil
 		return &emptypb.Empty{}, err
 	}
